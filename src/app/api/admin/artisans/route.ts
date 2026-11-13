@@ -39,7 +39,7 @@ export async function GET(request: Request) {
                 },
               },
             },
-            { $project: { name: 1, email: 1, phone: 1, isSuspended: 1 } },
+            { $project: { name: 1, email: 1, phone: 1, isSuspended: 1, suspensionReason: 1 } },
           ],
           as: "user",
         },
@@ -53,6 +53,7 @@ export async function GET(request: Request) {
           email: "$user.email",
           phone: { $ifNull: ["$user.phone", ""] },
           isSuspended: "$user.isSuspended",
+          suspensionReason: "$user.suspensionReason",
           verificationStatus: 1,
           isAvailable: 1,
           category: 1,
@@ -264,22 +265,52 @@ export async function PATCH(request: Request) {
     if (!pendingProfile) {
       return Response.json({ error: "Ce profil est introuvable ou a déjà été traité." }, { status: 409 });
     }
-    if (body.status === "VERIFIED" && await User.exists({ _id: pendingProfile.userId, isSuspended: true })) {
-      return Response.json({ error: "Un compte suspendu ne peut pas être approuvé." }, { status: 409 });
+    const artisanAccount = await User.findOne({ _id: pendingProfile.userId, role: "ARTISAN" }).select("isSuspended suspensionReason");
+    if (!artisanAccount) return Response.json({ error: "Le compte artisan est introuvable." }, { status: 404 });
+    if (
+      body.status === "VERIFIED" &&
+      artisanAccount.isSuspended &&
+      artisanAccount.suspensionReason !== "Attente de validation administrative"
+    ) {
+      return Response.json({ error: "Ce compte est suspendu pour une autre raison et ne peut pas être approuvé." }, { status: 409 });
     }
 
-    const profile = await ArtisanProfile.findOneAndUpdate(
-      { _id: body.profileId, verificationStatus: "PENDING" },
-      {
-        $set: {
-          verificationStatus: body.status,
-          verificationReason: body.status === "REJECTED" ? reason : "",
-          verifiedBy: admin.id,
-          verifiedAt: new Date(),
-        },
-      },
-      { new: true, runValidators: true },
-    ).select("_id verificationStatus verificationReason verifiedAt");
+    const dbSession = await mongoose.startSession();
+    let profile: { id: string; verificationStatus: string; verificationReason?: string; verifiedAt?: Date } | null;
+    try {
+      profile = await dbSession.withTransaction(async () => {
+        const currentProfile = await ArtisanProfile.findOne({ _id: body.profileId, verificationStatus: "PENDING" }).session(dbSession);
+        const currentAccount = currentProfile
+          ? await User.findOne({ _id: currentProfile.userId, role: "ARTISAN" }).session(dbSession)
+          : null;
+        if (!currentProfile || !currentAccount) return null;
+        if (
+          body.status === "VERIFIED" &&
+          currentAccount.isSuspended &&
+          currentAccount.suspensionReason !== "Attente de validation administrative"
+        ) return null;
+
+        currentProfile.verificationStatus = body.status;
+        currentProfile.verificationReason = body.status === "REJECTED" ? reason : "";
+        currentProfile.verifiedBy = admin.id;
+        currentProfile.verifiedAt = new Date();
+        await currentProfile.save({ session: dbSession });
+
+        if (body.status === "VERIFIED" && currentAccount.suspensionReason === "Attente de validation administrative") {
+          currentAccount.isSuspended = false;
+          currentAccount.suspensionReason = "";
+          await currentAccount.save({ session: dbSession });
+        }
+        return {
+          id: currentProfile.id,
+          verificationStatus: currentProfile.verificationStatus,
+          verificationReason: currentProfile.verificationReason,
+          verifiedAt: currentProfile.verifiedAt,
+        };
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     if (!profile) {
       return Response.json({ error: "Ce profil est introuvable ou a déjà été traité." }, { status: 409 });

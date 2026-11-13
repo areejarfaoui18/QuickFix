@@ -46,10 +46,11 @@ const emptyForm: ArtisanForm = {
 
 const statusLabels: Record<ManagedArtisan["verificationStatus"], string> = { PENDING: "En attente", VERIFIED: "Vérifié", REJECTED: "Refusé" };
 
-export function AdminArtisanManagement() {
+export function AdminArtisanManagement({ onMessage }: { onMessage: (artisanId: string) => void }) {
   const [artisans, setArtisans] = useState<ManagedArtisan[]>([]);
   const [form, setForm] = useState<ArtisanForm>(emptyForm);
   const [editing, setEditing] = useState<ManagedArtisan | null>(null);
+  const [selectedArtisanId, setSelectedArtisanId] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,6 +58,7 @@ export function AdminArtisanManagement() {
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const selectedArtisan = artisans.find((artisan) => artisan.id === selectedArtisanId) ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -188,6 +190,19 @@ export function AdminArtisanManagement() {
       {notice && <p className="admin-notice" role="status">{notice}</p>}
       {temporaryPassword && <div className="temporary-password"><label htmlFor="temporary-password">Mot de passe temporaire — affiché uniquement maintenant</label><div><input id="temporary-password" readOnly value={temporaryPassword} /><button className="secondary-button" onClick={() => void copyTemporaryPassword()}>Copier</button></div></div>}
 
+      <div className="admin-artisan-selector">
+        <label htmlFor="selected-artisan">Sélectionner un artisan pour consulter ses coordonnées</label>
+        <select id="selected-artisan" value={selectedArtisanId} onChange={(event) => setSelectedArtisanId(event.target.value)}>
+          <option value="">Choisir un artisan…</option>
+          {artisans.map((artisan) => <option key={artisan.id} value={artisan.id}>{artisan.name} · {artisan.category} · {artisan.city}</option>)}
+        </select>
+      </div>
+      {selectedArtisan && <article className="admin-artisan-card admin-selected-artisan">
+        <div className="admin-artisan-top"><div><p className="eyebrow">{selectedArtisan.category} · {selectedArtisan.city}</p><h2>{selectedArtisan.name}</h2></div><span className="admin-account-state">{statusLabels[selectedArtisan.verificationStatus]}</span></div>
+        <dl className="admin-artisan-details"><div><dt>E-mail</dt><dd><a href={`mailto:${selectedArtisan.email}`}>{selectedArtisan.email}</a></dd></div>{selectedArtisan.phone && <div><dt>Téléphone</dt><dd><a href={`tel:${selectedArtisan.phone}`}>{selectedArtisan.phone}</a></dd></div>}<div><dt>Disponibilité</dt><dd>{selectedArtisan.isAvailable ? "Disponible" : "Indisponible"}</dd></div></dl>
+        <div className="request-actions"><button className="primary-button" disabled={busy} onClick={() => onMessage(selectedArtisan.id)}>Envoyer un message</button></div>
+      </article>}
+
       {editing !== null && <p className="admin-editing" role="status">Modification de {editing.name}</p>}
       {loading ? <p role="status">Chargement des artisans…</p> : artisans.length === 0 ? <div className="empty-state"><strong>Aucun artisan enregistré</strong><p>Ajoutez le premier compte artisan depuis cette page.</p></div> : (
         <div className="admin-artisan-list">
@@ -196,7 +211,7 @@ export function AdminArtisanManagement() {
               <div className="admin-artisan-top"><div><p className="eyebrow">{artisan.category} · {artisan.city}</p><h2>{artisan.name}</h2></div><span className={`admin-account-state ${artisan.isSuspended ? "suspended" : ""}`}>{artisan.isSuspended ? "Désactivé" : statusLabels[artisan.verificationStatus]}</span></div>
               <dl className="admin-artisan-details"><div><dt>E-mail</dt><dd>{artisan.email}</dd></div>{artisan.phone && <div><dt>Téléphone</dt><dd>{artisan.phone}</dd></div>}<div><dt>Disponibilité</dt><dd>{artisan.isAvailable ? "Disponible" : "Indisponible"}</dd></div></dl>
               <p className="admin-bio">{artisan.bio || "Aucune présentation renseignée."}</p>
-              <div className="request-actions"><button className="secondary-button" disabled={busy} onClick={() => openEditForm(artisan)}>Modifier</button>{!artisan.isSuspended && <button className="secondary-button" disabled={busy} onClick={() => void deactivate(artisan)}>Désactiver</button>}</div>
+              <div className="request-actions"><button className="secondary-button" disabled={busy} onClick={() => onMessage(artisan.id)}>Écrire à l’artisan</button><button className="secondary-button" disabled={busy} onClick={() => openEditForm(artisan)}>Modifier</button>{!artisan.isSuspended && <button className="secondary-button" disabled={busy} onClick={() => void deactivate(artisan)}>Désactiver</button>}</div>
             </article>
           ))}
         </div>

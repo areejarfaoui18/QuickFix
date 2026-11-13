@@ -10,6 +10,10 @@ const userSchema = new Schema(
     isSuspended: { type: Boolean, default: false },
     suspensionReason: { type: String, trim: true, maxlength: 500 },
     mustChangePassword: { type: Boolean, default: false },
+    emailVerified: { type: Boolean, default: true },
+    emailVerificationTokenHash: { type: String, select: false },
+    emailVerificationExpiresAt: { type: Date, select: false },
+    emailVerificationSentAt: { type: Date, select: false },
   },
   { timestamps: true },
 );

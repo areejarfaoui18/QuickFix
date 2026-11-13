@@ -38,6 +38,9 @@ export async function POST(request: Request) {
       return Response.json({ error: "Adresse e-mail ou mot de passe incorrect." }, { status: 401 });
     }
     if (user.isSuspended) {
+      if (user.role === "ARTISAN" && user.suspensionReason === "Attente de validation administrative") {
+        return Response.json({ error: "Votre profil artisan est en attente de validation par l’administration." }, { status: 403 });
+      }
       return Response.json({ error: "Ce compte est suspendu. Contactez l’assistance." }, { status: 403 });
     }
 
