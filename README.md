@@ -31,6 +31,12 @@ Après une demande terminée, le client peut noter l’artisan de 1 à 5 étoile
 
 Les clients peuvent démarrer une conversation depuis le profil public d’un artisan vérifié ; les artisans répondent depuis « Messages ». L’administration peut sélectionner un artisan dans sa fiche, consulter son e-mail et son téléphone, puis lui écrire depuis la messagerie. Les conversations sont privées aux participants et actualisées automatiquement. Les messages acceptent du texte et une image ou un PDF (5 Mo maximum), stockés dans MongoDB GridFS.
 
+## Missions et propositions
+
+Dans « Missions », un client peut publier une mission par catégorie avec une ville, une date et un budget indicatif. La description est visible par les artisans correspondants ; l’adresse exacte reste privée jusqu’au choix d’une proposition. Les artisans vérifiés et disponibles peuvent envoyer un devis détaillé et un message. Le client compare les propositions et confirme son choix, ce qui crée une demande acceptée dans « Mes demandes ». Les missions ouvertes peuvent être annulées par leur client. Les autres propositions sont automatiquement closes lorsqu’une mission est attribuée ou annulée.
+
+Une commission artisan indicative de 5 % et le net estimé sont affichés sur les propositions. L’application ne collecte ni paiement ni commission. L’attribution et la soumission utilisent des transactions MongoDB ; la base doit donc prendre en charge les transactions.
+
 ## Périmètre initial
 
 - Interface client responsive avec recherche et catégories de services.

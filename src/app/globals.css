@@ -286,6 +286,44 @@ h1, h2, p { margin-top: 0; }
 .ai-form .primary-button { min-width: 82px; margin: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .requests-panel { max-width: 820px; margin: 0 auto; }
+.marketplace-board { max-width: 820px; margin: 0 auto; }
+.marketplace-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.marketplace-header h1 { margin: 0; color: #25332d; font-family: Georgia, serif; font-size: 32px; font-weight: 500; }
+.marketplace-header .primary-button { flex: 0 0 auto; margin: 0; }
+.marketplace-form { margin: 0 0 24px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.marketplace-form h2 { margin: 0; font-size: 15px; }
+.marketplace-form small { color: #77847c; font-size: 10px; font-weight: 400; line-height: 1.5; }
+.marketplace-list { display: grid; gap: 12px; }
+.marketplace-job { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.marketplace-job-heading, .marketplace-proposal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.marketplace-job-heading > div, .marketplace-proposal-heading > div { min-width: 0; }
+.marketplace-job-heading .eyebrow { margin-bottom: 6px; }
+.marketplace-job h2 { margin: 0; color: #344139; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+.marketplace-status { flex: 0 0 auto; padding: 6px 9px; border-radius: 5px; background: #eef4ed; color: #47704f; font-size: 10px; font-weight: 650; }
+.marketplace-status-assigned { background: #e9f0f4; color: #4c6f7d; }
+.marketplace-status-cancelled { background: #f7ecea; color: #9c5e55; }
+.marketplace-description, .marketplace-proposal > p { color: #627068; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.marketplace-description { margin: 14px 0; }
+.marketplace-details { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; padding-top: 12px; border-top: 1px solid #eef1ee; }
+.marketplace-details > div { display: grid; gap: 4px; font-size: 11px; }
+.marketplace-details dt { color: #89948e; }
+.marketplace-details dd { margin: 0; color: #3e5146; }
+.marketplace-proposals, .marketplace-quote-form, .marketplace-my-proposal { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8eee8; }
+.marketplace-proposals > p, .marketplace-my-proposal p { color: #627068; font-size: 11px; line-height: 1.6; }
+.marketplace-proposal + .marketplace-proposal { margin-top: 18px; padding-top: 18px; border-top: 1px solid #e8eee8; }
+.marketplace-proposal-heading strong, .marketplace-my-proposal > strong { color: #344139; font-size: 12px; }
+.marketplace-proposal-heading small { display: block; margin-top: 4px; color: #7d8c82; font-size: 10px; }
+.marketplace-proposal ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.marketplace-proposal li, .marketplace-proposal-total { display: flex; justify-content: space-between; gap: 12px; color: #526158; font-size: 11px; }
+.marketplace-proposal li span { overflow-wrap: anywhere; }
+.marketplace-proposal-total { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e8eee8; }
+.marketplace-proposal > small { display: block; margin-top: 8px; color: #7d8c82; font-size: 10px; }
+.marketplace-quote-form h3 { margin: 0; font-size: 14px; }
+.marketplace-fees { display: grid; gap: 6px; padding: 12px; border-left: 3px solid #7ba386; background: #f4f8f4; color: #526158; font-size: 11px; }
+.marketplace-fees strong { color: #254c38; }
+.marketplace-fees small { color: #77847c; line-height: 1.5; }
+.marketplace-quote-form .request-actions { margin-top: 0; }
+.marketplace-quote-form .request-actions .primary-button { width: auto; }
 .messages-panel { max-width: 1050px; margin: 0 auto; }
 .messages-heading { margin-bottom: 18px; }
 .messages-heading h1 { margin: 0 0 7px; color: #25332d; font-family: Georgia, serif; font-size: 34px; font-weight: 500; }
@@ -484,6 +522,9 @@ h1, h2, p { margin-top: 0; }
   .category-card { padding: 11px 9px; }
 }
 @media (max-width: 760px) {
+  .marketplace-header { align-items: flex-start; flex-direction: column; }
+  .marketplace-header h1 { font-size: 27px; }
+  .marketplace-job { padding: 14px; }
   .verification-notice { grid-template-columns: 38px minmax(0, 1fr); align-items: start; gap: 12px; padding: 14px; }
   .verification-notice-icon { width: 38px; height: 38px; }
   .verification-notice .secondary-button { grid-column: 2; justify-self: start; }

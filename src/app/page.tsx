@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminArtisansPanel } from "@/components/admin-artisans-panel";
 import { AiAssistant } from "@/components/ai-assistant";
 import { MessagesPanel } from "@/components/messages-panel";
+import { MarketplaceBoard } from "@/components/marketplace-board";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { AccountPanel, type IdentityVerification } from "@/components/account-panel";
 import { IdentityVerificationPanel } from "@/components/identity-verification-panel";
@@ -50,7 +51,7 @@ type ArtisanListItem = {
 
 const artisanTones = ["sage", "lavender", "peach", "blue"];
 type AdminTab = "Vérification artisan" | "Artisans" | "Avis clients" | "Réclamations";
-type Tab = "Explorer" | "Mes demandes" | "Messages" | "Profil" | "Vérification d’identité" | AdminTab;
+type Tab = "Explorer" | "Missions" | "Mes demandes" | "Messages" | "Profil" | "Vérification d’identité" | AdminTab;
 
 const adminTabs: AdminTab[] = ["Vérification artisan", "Artisans", "Avis clients", "Réclamations"];
 const adminPageByTab: Record<AdminTab, "verification" | "management" | "reviews" | "reports"> = {
@@ -62,6 +63,7 @@ const adminPageByTab: Record<AdminTab, "verification" | "management" | "reviews"
 
 function tabIcon(tab: Tab): string {
   if (tab === "Explorer") return "home";
+  if (tab === "Missions") return "clipboard";
   if (tab === "Mes demandes") return "clipboard";
   if (tab === "Messages") return "chat";
   if (tab === "Profil") return "user";
@@ -254,7 +256,7 @@ export default function Home() {
       setActiveTab("Profil");
       return;
     }
-    if (currentUser?.role === "ADMIN" && (tab === "Explorer" || tab === "Mes demandes")) {
+    if (currentUser?.role === "ADMIN" && (tab === "Explorer" || tab === "Missions" || tab === "Mes demandes")) {
       setActiveTab("Vérification artisan");
       return;
     }
@@ -263,7 +265,7 @@ export default function Home() {
     if (tab === "Avis clients" || tab === "Réclamations") {
       setModalActionError("");
     }
-    if ((tab === "Mes demandes" || tab === "Profil" || tab === "Messages") && !currentUser) {
+    if ((tab === "Missions" || tab === "Mes demandes" || tab === "Profil" || tab === "Messages") && !currentUser) {
       setPendingTab(tab);
       setAuthDialog("login");
       return;
@@ -289,7 +291,7 @@ export default function Home() {
     }
     setActiveTab(user.role === "ADMIN" ? "Vérification artisan" : registered && user.role === "ARTISAN" ? "Profil" : "Explorer");
     if (pendingTab) {
-      const adminRestrictedTab = user.role === "ADMIN" && (pendingTab === "Explorer" || pendingTab === "Mes demandes");
+      const adminRestrictedTab = user.role === "ADMIN" && (pendingTab === "Explorer" || pendingTab === "Missions" || pendingTab === "Mes demandes");
       setActiveTab(adminRestrictedTab ? "Vérification artisan" : pendingTab);
       setPendingTab(null);
     }
@@ -335,7 +337,7 @@ export default function Home() {
 
   const navigationTabs: Tab[] = currentUser?.role === "ADMIN"
     ? adminTabs
-    : ["Explorer", "Mes demandes", "Messages", "Profil"];
+    : ["Explorer", "Missions", "Mes demandes", "Messages", "Profil"];
 
   return (
     <main className="app-shell">
@@ -447,6 +449,8 @@ export default function Home() {
 
               <section className="trust-strip"><span className="trust-icon"><Icon name="verified" size={19} /></span><span><strong>Des professionnels vérifiés, pour de vrai.</strong><small>Chaque profil est contrôlé par notre équipe avant d&apos;être publié.</small></span><Icon name="arrow" size={17} /></section>
             </>
+          ) : activeTab === "Missions" && currentUser && (currentUser.role === "CLIENT" || currentUser.role === "ARTISAN") ? (
+            <MarketplaceBoard user={currentUser} onOpenRequests={() => { setRequestsVersion((version) => version + 1); setActiveTab("Mes demandes"); }} />
           ) : activeTab === "Mes demandes" && currentUser ? (
             <RequestsPanel user={currentUser} refreshKey={requestsVersion} onOpenMessages={openMessages} />
           ) : activeTab === "Messages" && currentUser ? (
