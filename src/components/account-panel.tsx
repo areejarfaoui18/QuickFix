@@ -17,7 +17,19 @@ type AccountProfile = {
   } | null;
 };
 
-export function AccountPanel({ user, onPasswordChanged }: { user: AppUser; onPasswordChanged: () => void }) {
+export type IdentityVerification = {
+  status: "PENDING" | "VERIFIED" | "REJECTED";
+  reason: string;
+  hasDocument: boolean;
+};
+
+export function AccountPanel({ user, onPasswordChanged, verification, verificationError, onOpenVerification }: {
+  user: AppUser;
+  onPasswordChanged: () => void;
+  verification: IdentityVerification | null;
+  verificationError: string;
+  onOpenVerification: () => void;
+}) {
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [profileError, setProfileError] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -91,8 +103,18 @@ export function AccountPanel({ user, onPasswordChanged }: { user: AppUser; onPas
           </>
         )}
       </section>
-      <div className="account-security">
-        <h2>Sécurité du compte</h2>
+      {user.role === "ARTISAN" && <section className="account-security" aria-labelledby="identity-title">
+        <h2 id="identity-title">Vérification d’identité</h2>
+        {user.mustChangePassword ? <p>Changez d’abord votre mot de passe temporaire.</p> : verificationError && !verification ? <p className="form-error" role="alert">{verificationError}</p> : !verification ? <p role="status">Chargement de votre dossier…</p> : <>
+          {verification.status === "VERIFIED" && verification.hasDocument ? <p className="success-message">Identité approuvée. Votre profil peut recevoir des demandes lorsqu’il est disponible.</p> : verification.status === "PENDING" && verification.hasDocument ? <p role="status">Pièce d’identité envoyée. En attente de vérification par l’administration.</p> : <>
+            {verification.status === "REJECTED" && <p className="form-error">Vérification refusée{verification.reason ? ` : ${verification.reason}` : "."}</p>}
+            <p>Envoyez une pièce d’identité pour que l’administration puisse examiner votre profil avant publication.</p>
+            <button className="primary-button" onClick={onOpenVerification}>{verification.status === "REJECTED" ? "Envoyer une nouvelle pièce" : "Envoyer une pièce d’identité"}</button>
+          </>}
+        </>}
+      </section>}
+      <details className="account-security" open={user.mustChangePassword || undefined}>
+        <summary>Sécurité du compte</summary>
         <p>{user.mustChangePassword ? "Pour des raisons de sécurité, changez votre mot de passe temporaire avant de continuer." : "Choisissez un mot de passe unique d’au moins 12 caractères."}</p>
         <form className="dialog-form" onSubmit={changePassword}>
           <label>Mot de passe actuel<input type="password" autoComplete="current-password" required maxLength={128} value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
@@ -101,7 +123,7 @@ export function AccountPanel({ user, onPasswordChanged }: { user: AppUser; onPas
           {message && <p className="success-message" role="status">{message}</p>}
           <button className="primary-button" type="submit" disabled={submitting}>{submitting ? "Modification…" : "Changer le mot de passe"}</button>
         </form>
-      </div>
+      </details>
     </section>
   );
 }

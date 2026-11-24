@@ -55,6 +55,7 @@ export async function GET(request: Request) {
           isSuspended: "$user.isSuspended",
           suspensionReason: "$user.suspensionReason",
           verificationStatus: 1,
+          hasIdentityDocument: { $ne: [{ $ifNull: ["$identityDocument.fileId", null] }, null] },
           isAvailable: 1,
           category: 1,
           city: 1,
@@ -261,9 +262,12 @@ export async function PATCH(request: Request) {
       return Response.json({ error: "Indiquez un motif de refus (5 à 500 caractères)." }, { status: 400 });
     }
 
-    const pendingProfile = await ArtisanProfile.findOne({ _id: body.profileId, verificationStatus: "PENDING" }).select("userId");
+    const pendingProfile = await ArtisanProfile.findOne({ _id: body.profileId, verificationStatus: "PENDING" }).select("userId identityDocument.fileId");
     if (!pendingProfile) {
       return Response.json({ error: "Ce profil est introuvable ou a déjà été traité." }, { status: 409 });
+    }
+    if (body.status === "VERIFIED" && !pendingProfile.identityDocument?.fileId) {
+      return Response.json({ error: "L’artisan doit envoyer une pièce d’identité avant son approbation." }, { status: 409 });
     }
     const artisanAccount = await User.findOne({ _id: pendingProfile.userId, role: "ARTISAN" }).select("isSuspended suspensionReason");
     if (!artisanAccount) return Response.json({ error: "Le compte artisan est introuvable." }, { status: 404 });
@@ -284,6 +288,7 @@ export async function PATCH(request: Request) {
           ? await User.findOne({ _id: currentProfile.userId, role: "ARTISAN" }).session(dbSession)
           : null;
         if (!currentProfile || !currentAccount) return null;
+        if (body.status === "VERIFIED" && !currentProfile.identityDocument?.fileId) return null;
         if (
           body.status === "VERIFIED" &&
           currentAccount.isSuspended &&

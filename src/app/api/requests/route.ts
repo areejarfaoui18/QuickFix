@@ -249,7 +249,7 @@ export async function POST(request: Request) {
     }
 
     const [profile, artisan] = await Promise.all([
-      ArtisanProfile.findOne({ userId: artisanId, verificationStatus: "VERIFIED", isAvailable: true }).select("category"),
+      ArtisanProfile.findOne({ userId: artisanId, verificationStatus: "VERIFIED", "identityDocument.fileId": { $exists: true }, isAvailable: true }).select("category"),
       User.findOne({ _id: artisanId, role: "ARTISAN", isSuspended: false }).select("name"),
     ]);
     if (!profile || !artisan) {
@@ -374,6 +374,12 @@ export async function PATCH(request: Request) {
       return Response.json({ error: "La demande ou son statut est invalide." }, { status: 400 });
     }
     const newStatus = body.status as RequestStatus;
+    if (user.role === "ARTISAN" && (newStatus === "ACCEPTEE" || newStatus === "EN_COURS")) {
+      const verifiedProfile = await ArtisanProfile.exists({ userId: user.id, verificationStatus: "VERIFIED", "identityDocument.fileId": { $exists: true } });
+      if (!verifiedProfile) {
+        return Response.json({ error: "Votre identité doit être approuvée avant d’accepter ou de commencer une intervention." }, { status: 403 });
+      }
+    }
     let quoteItems: { description: string; amount: number }[] | undefined;
     let quoteTotal: number | undefined;
     let quoteValidUntil: Date | undefined;

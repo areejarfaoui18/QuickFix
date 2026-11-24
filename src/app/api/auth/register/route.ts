@@ -72,8 +72,8 @@ export async function POST(request: Request) {
       passwordHash: await hashPassword(password),
       role,
       emailVerified: true,
-      isSuspended: role === "ARTISAN",
-      suspensionReason: role === "ARTISAN" ? "Attente de validation administrative" : "",
+      isSuspended: false,
+      suspensionReason: "",
       mustChangePassword: false,
     });
 
@@ -94,20 +94,11 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    if (role === "ARTISAN") {
-      return Response.json(
-        {
-          pendingApproval: true,
-          message: "Votre profil a été transmis à l’administration. Vous pourrez vous connecter après son approbation.",
-        },
-        { status: 201, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-
     let token: string;
     try {
       token = await createSession(user._id);
     } catch (error) {
+      if (role === "ARTISAN") await ArtisanProfile.deleteOne({ userId: user._id });
       await User.deleteOne({ _id: user._id });
       throw error;
     }

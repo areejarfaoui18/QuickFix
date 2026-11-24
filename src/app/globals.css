@@ -65,6 +65,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .notification-indicator { position: relative; display: grid; place-items: center; color: #59665f; }
 .notification-indicator i { position: absolute; top: 0; right: 0; width: 6px; height: 6px; border: 1px solid white; border-radius: 50%; background: #da856d; }
 .content { max-width: 1150px; margin: 0 auto; padding: 35px 5.4% 55px; }
+.verification-notice { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 14px; margin-bottom: 24px; padding: 16px 18px; border: 1px solid #e3e9e5; border-left: 4px solid #bb8741; border-radius: 8px; background: #fff; color: #25332d; box-shadow: 0 3px 14px rgb(34 52 42 / 7%); }
+.verification-notice-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 8px; background: #f9f1e4; color: #96652c; }
+.verification-notice > div { min-width: 0; }
+.verification-notice strong { display: block; font-size: 13px; line-height: 1.35; }
+.verification-notice p { margin: 4px 0 0; color: #66766d; font-size: 11px; line-height: 1.5; }
+.verification-notice .secondary-button { border-color: #dce5de; color: var(--green-dark); }
 .welcome-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 23px; }
 .pwa-install-button { display: flex; min-height: 36px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid #dfe9e1; border-radius: 8px; background: #fff; color: var(--green-dark); font-size: 10px; font-weight: 650; }
 .pwa-install-button:hover { border-color: #9fbea4; background: #f3f7f3; }
@@ -381,6 +387,8 @@ h1, h2, p { margin-top: 0; }
 .account-price-range { display: flex; gap: 10px; margin: 13px 0 0; color: #344139; font-size: 10px; }
 .account-security { margin-top: 20px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .account-security h2 { margin: 0 0 6px; font-size: 14px; }
+.account-security summary { cursor: pointer; color: #25332d; font-size: 14px; font-weight: 650; }
+.account-security[open] summary { margin-bottom: 10px; }
 .account-security > p { margin: 0; color: #84908a; font-size: 10px; }
 .account-security .dialog-form { max-width: 420px; }
 .requests-panel > h1 { margin: 0 0 8px; color: #25332d; font-family: Georgia, serif; font-size: 34px; font-weight: 500; }
@@ -467,6 +475,9 @@ h1, h2, p { margin-top: 0; }
   .category-card { padding: 11px 9px; }
 }
 @media (max-width: 760px) {
+  .verification-notice { grid-template-columns: 38px minmax(0, 1fr); align-items: start; gap: 12px; padding: 14px; }
+  .verification-notice-icon { width: 38px; height: 38px; }
+  .verification-notice .secondary-button { grid-column: 2; justify-self: start; }
   body { background: #fff; }
   .desktop-sidebar { display: none; }
   .workspace { width: 100%; margin: 0; padding-bottom: 72px; }

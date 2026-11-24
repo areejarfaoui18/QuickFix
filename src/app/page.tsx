@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminArtisansPanel } from "@/components/admin-artisans-panel";
 import { AiAssistant } from "@/components/ai-assistant";
 import { MessagesPanel } from "@/components/messages-panel";
 import { PwaInstallButton } from "@/components/pwa-install-button";
-import { AccountPanel } from "@/components/account-panel";
+import { AccountPanel, type IdentityVerification } from "@/components/account-panel";
+import { IdentityVerificationPanel } from "@/components/identity-verification-panel";
 import { AuthDialog, type AppUser } from "@/components/auth-dialog";
 import { RequestDialog } from "@/components/request-dialog";
 import { RequestsPanel } from "@/components/requests-panel";
@@ -48,7 +49,7 @@ type ArtisanListItem = {
 
 const artisanTones = ["sage", "lavender", "peach", "blue"];
 type AdminTab = "Vérification artisan" | "Artisans" | "Avis clients" | "Réclamations";
-type Tab = "Explorer" | "Mes demandes" | "Messages" | "Profil" | AdminTab;
+type Tab = "Explorer" | "Mes demandes" | "Messages" | "Profil" | "Vérification d’identité" | AdminTab;
 
 const adminTabs: AdminTab[] = ["Vérification artisan", "Artisans", "Avis clients", "Réclamations"];
 const adminPageByTab: Record<AdminTab, "verification" | "management" | "reviews" | "reports"> = {
@@ -98,6 +99,9 @@ export default function Home() {
   const [pendingMessageTargetId, setPendingMessageTargetId] = useState<string | null>(null);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
+  const [verificationState, setVerificationState] = useState<{ userId: string; verification: IdentityVerification | null; error: string } | null>(null);
+  const [verificationVersion, setVerificationVersion] = useState(0);
+  const verificationRequestId = useRef(0);
   const [requestsVersion, setRequestsVersion] = useState(0);
   const [modalActionError, setModalActionError] = useState("");
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
@@ -124,6 +128,29 @@ export default function Home() {
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.role !== "ARTISAN" || currentUser.mustChangePassword) return;
+    const userId = currentUser.id;
+    const controller = new AbortController();
+    async function refreshVerification() {
+      const requestId = ++verificationRequestId.current;
+      try {
+        const response = await fetch("/api/artisan/verification", { signal: controller.signal, cache: "no-store" });
+        const result: IdentityVerification & { error?: string } = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Impossible de vérifier votre identité.");
+        if (!controller.signal.aborted && requestId === verificationRequestId.current) setVerificationState({ userId, verification: result, error: "" });
+      } catch (error) {
+        if (!controller.signal.aborted && requestId === verificationRequestId.current) setVerificationState({ userId, verification: null, error: error instanceof Error ? error.message : "Impossible de vérifier votre identité." });
+      }
+    }
+    void refreshVerification();
+    const timer = window.setInterval(() => void refreshVerification(), 30_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [currentUser?.id, currentUser?.role, currentUser?.mustChangePassword, verificationVersion]);
 
   useEffect(() => {
     if (currentUser?.role !== "ARTISAN" || currentUser.mustChangePassword) {
@@ -153,6 +180,8 @@ export default function Home() {
   }, [currentUser?.id, currentUser?.mustChangePassword, currentUser?.role]);
 
   const visiblePendingRequestCount = currentUser?.role === "ARTISAN" && !currentUser.mustChangePassword ? pendingRequestCount : 0;
+  const currentVerification = verificationState?.userId === currentUser?.id ? verificationState : null;
+  const identityVerification = currentVerification?.verification ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -225,6 +254,7 @@ export default function Home() {
       setActiveTab("Vérification artisan");
       return;
     }
+    if (tab === "Vérification d’identité" && currentUser?.role !== "ARTISAN") return;
     if (adminTabs.includes(tab as AdminTab) && currentUser?.role !== "ADMIN") return;
     if (tab === "Avis clients" || tab === "Réclamations") {
       setModalActionError("");
@@ -237,7 +267,7 @@ export default function Home() {
     setActiveTab(tab);
   }
 
-  function finishAuthentication(user: AppUser) {
+  function finishAuthentication(user: AppUser, registered = false) {
     setCurrentUser(user);
     setPendingRequestCount(0);
     setAuthDialog(null);
@@ -253,7 +283,7 @@ export default function Home() {
       setPendingTab(null);
       return;
     }
-    setActiveTab(user.role === "ADMIN" ? "Vérification artisan" : "Explorer");
+    setActiveTab(user.role === "ADMIN" ? "Vérification artisan" : registered && user.role === "ARTISAN" ? "Profil" : "Explorer");
     if (pendingTab) {
       const adminRestrictedTab = user.role === "ADMIN" && (pendingTab === "Explorer" || pendingTab === "Mes demandes");
       setActiveTab(adminRestrictedTab ? "Vérification artisan" : pendingTab);
@@ -336,6 +366,14 @@ export default function Home() {
         </header>
 
         <div className="content">
+          {currentUser?.role === "ARTISAN" && (currentUser.mustChangePassword || !identityVerification || identityVerification.status !== "VERIFIED" || !identityVerification.hasDocument) && <section className="verification-notice" role="status" aria-label="Vérification d’identité">
+            <span className="verification-notice-icon"><Icon name={identityVerification?.status === "PENDING" && identityVerification.hasDocument ? "clock" : "verified"} size={19} /></span>
+            <div>
+              <strong>{currentUser.mustChangePassword ? "Mot de passe temporaire à changer" : currentVerification?.error ? "Vérification indisponible" : !identityVerification ? "Vérification de votre dossier…" : identityVerification.status === "REJECTED" ? "Vérification d’identité refusée" : identityVerification.status === "PENDING" && identityVerification.hasDocument ? "Vérification d’identité en attente" : "Vérification d’identité requise"}</strong>
+              <p>{currentUser.mustChangePassword ? "Changez votre mot de passe avant de vérifier votre identité." : currentVerification?.error ? "Impossible de vérifier votre dossier pour le moment." : !identityVerification ? "Chargement de votre statut de vérification." : identityVerification.status === "REJECTED" ? "Consultez le motif et envoyez une nouvelle pièce d’identité pour recevoir des demandes." : identityVerification.status === "PENDING" && identityVerification.hasDocument ? "Votre pièce d’identité a été envoyée. Vous pourrez recevoir des demandes après l’approbation de l’administration." : "Envoyez votre pièce d’identité et attendez son approbation pour recevoir des demandes."}</p>
+            </div>
+            {currentVerification?.error && !currentUser.mustChangePassword ? <button className="secondary-button" onClick={() => setVerificationVersion((version) => version + 1)}>Réessayer</button> : currentUser.mustChangePassword ? <button className="secondary-button" onClick={() => selectTab("Profil")}>Changer le mot de passe</button> : identityVerification && (identityVerification.status === "REJECTED" || !identityVerification.hasDocument) ? <button className="secondary-button" onClick={() => selectTab("Vérification d’identité")}>{identityVerification.status === "REJECTED" ? "Envoyer une nouvelle pièce" : "Vérifier mon identité"}</button> : null}
+          </section>}
           {activeTab === "Explorer" ? (
             <>
               <section className="welcome-row">
@@ -410,7 +448,16 @@ export default function Home() {
               onUnreadCountChange={updateUnreadMessageCount}
             />
           ) : activeTab === "Profil" && currentUser ? (
-            <AccountPanel user={currentUser} onPasswordChanged={() => setCurrentUser({ ...currentUser, mustChangePassword: false })} />
+            <AccountPanel user={currentUser} onPasswordChanged={() => setCurrentUser({ ...currentUser, mustChangePassword: false })} verification={identityVerification} verificationError={currentVerification?.error ?? ""} onOpenVerification={() => selectTab("Vérification d’identité")} />
+          ) : activeTab === "Vérification d’identité" && currentUser?.role === "ARTISAN" && !currentUser.mustChangePassword ? (
+            <IdentityVerificationPanel verification={identityVerification} verificationError={currentVerification?.error ?? ""} onBack={() => selectTab("Profil")} onRefreshVerification={() => {
+              verificationRequestId.current += 1;
+              setVerificationVersion((version) => version + 1);
+            }} onVerificationChanged={(verification) => {
+              verificationRequestId.current += 1;
+              setVerificationState({ userId: currentUser.id, verification, error: "" });
+              setVerificationVersion((version) => version + 1);
+            }} />
           ) : adminTabs.includes(activeTab as AdminTab) && currentUser?.role === "ADMIN" ? (
             <AdminArtisansPanel page={adminPageByTab[activeTab as AdminTab]} onOpenMessages={openMessages} />
           ) : (

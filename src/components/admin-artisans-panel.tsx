@@ -15,6 +15,7 @@ type PendingArtisan = {
   bio: string;
   indicativePriceMin: number | null;
   indicativePriceMax: number | null;
+  hasIdentityDocument: boolean;
   createdAt: string;
 };
 
@@ -195,13 +196,14 @@ export function AdminArtisansPanel({ page, onOpenMessages }: { page: AdminPage; 
                 {(artisan.indicativePriceMin !== null || artisan.indicativePriceMax !== null) && <div><dt>Tarif indicatif</dt><dd>{artisan.indicativePriceMin ?? "—"} – {artisan.indicativePriceMax ?? "—"} DT</dd></div>}
               </dl>
               <p className="admin-bio">{artisan.bio || "Aucune présentation renseignée."}</p>
-              {artisan.isSuspended && artisan.suspensionReason === "Attente de validation administrative" && <p className="form-hint">Le compte sera activé uniquement après l’approbation du profil.</p>}
+              {artisan.hasIdentityDocument ? <p><a className="text-link" href={`/api/artisan/verification?profileId=${encodeURIComponent(artisan.id)}`}>Télécharger la pièce d’identité</a></p> : <p className="form-hint">Aucune pièce d’identité envoyée.</p>}
+              {artisan.isSuspended && artisan.suspensionReason === "Attente de validation administrative" && <p className="form-hint">L’artisan peut se connecter pour envoyer sa pièce d’identité.</p>}
               {artisan.isSuspended && artisan.suspensionReason !== "Attente de validation administrative" && <p className="form-error">Ce compte est suspendu pour une autre raison. Réactivez-le depuis « Gestion des artisans » avant l’approbation.</p>}
               <label className="admin-reason">Motif de refus (obligatoire en cas de refus)
                 <textarea maxLength={500} rows={2} value={reasons[artisan.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [artisan.id]: event.target.value }))} />
               </label>
               <div className="request-actions">
-                <button className="primary-button" disabled={busyId === artisan.id} onClick={() => void decide(artisan.id, "VERIFIED")}>{busyId === artisan.id ? "Enregistrement…" : "Approuver et publier"}</button>
+                <button className="primary-button" disabled={busyId === artisan.id || !artisan.hasIdentityDocument} onClick={() => void decide(artisan.id, "VERIFIED")}>{busyId === artisan.id ? "Enregistrement…" : "Approuver et publier"}</button>
                 <button className="secondary-button" disabled={busyId === artisan.id} onClick={() => void decide(artisan.id, "REJECTED")}>{busyId === artisan.id ? "Enregistrement…" : "Refuser"}</button>
               </div>
             </article>

@@ -15,6 +15,12 @@ export function getRequestAttachmentBucket(): mongoose.mongo.GridFSBucket {
   return new mongoose.mongo.GridFSBucket(db, { bucketName: "requestAttachments" });
 }
 
+export function getIdentityDocumentBucket(): mongoose.mongo.GridFSBucket {
+  const db = mongoose.connection.db;
+  if (!db) throw new Error("La connexion MongoDB n’est pas disponible pour les pièces d’identité.");
+  return new mongoose.mongo.GridFSBucket(db, { bucketName: "identityDocuments" });
+}
+
 export function detectAttachmentType(buffer: Buffer): string | null {
   if (
     buffer.length >= 3 &&
@@ -57,6 +63,13 @@ export function uploadRequestAttachment(buffer: Buffer, name: string, mimeType: 
     return Promise.reject(new Error("La photo doit faire entre 1 octet et 5 Mo."));
   }
   return uploadToBucket(getRequestAttachmentBucket(), buffer, name, mimeType);
+}
+
+export function uploadIdentityDocument(buffer: Buffer, mimeType: string): Promise<mongoose.mongo.ObjectId> {
+  if (buffer.length === 0 || buffer.length > MAX_ATTACHMENT_SIZE) {
+    return Promise.reject(new Error("La pièce d’identité doit faire entre 1 octet et 5 Mo."));
+  }
+  return uploadToBucket(getIdentityDocumentBucket(), buffer, "identity-document", mimeType);
 }
 
 function uploadToBucket(bucket: mongoose.mongo.GridFSBucket, buffer: Buffer, name: string, mimeType: string): Promise<mongoose.mongo.ObjectId> {

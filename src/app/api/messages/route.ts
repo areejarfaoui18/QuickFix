@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       }
       const artisanId = new mongoose.Types.ObjectId(body.artisanId);
       const [profile, artisan] = await Promise.all([
-        ArtisanProfile.findOne({ userId: artisanId, ...(user.role === "CLIENT" ? { verificationStatus: "VERIFIED" } : {}) }).select("_id"),
+        ArtisanProfile.findOne({ userId: artisanId, ...(user.role === "CLIENT" ? { verificationStatus: "VERIFIED", "identityDocument.fileId": { $exists: true } } : {}) }).select("_id"),
         User.findOne({ _id: artisanId, role: "ARTISAN", ...(user.role === "CLIENT" ? { isSuspended: false } : {}) }).select("_id"),
       ]);
       if (!profile || !artisan) return Response.json({ error: "Cet artisan n’est pas disponible." }, { status: 404 });

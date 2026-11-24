@@ -12,7 +12,7 @@ export type AppUser = {
 type AuthDialogProps = {
   initialMode: "login" | "register";
   onClose: () => void;
-  onSuccess: (user: AppUser) => void;
+  onSuccess: (user: AppUser, registered?: boolean) => void;
 };
 
 export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps) {
@@ -27,7 +27,6 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
   const [bio, setBio] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [pendingApproval, setPendingApproval] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -47,38 +46,18 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
           ? { name, phone, email, password, role: accountRole, category, city, bio }
           : { email, password }),
       });
-      const result: { user?: AppUser; error?: string; message?: string; pendingApproval?: boolean } = await response.json();
-      if (mode === "register" && response.ok && result.pendingApproval) {
-        setPendingApproval(true);
-        setNotice(result.message ?? "Votre profil a été transmis à l’administration pour validation.");
-        return;
-      }
+      const result: { user?: AppUser; error?: string } = await response.json();
       if (!response.ok || !result.user) {
         setError(result.error ?? "Impossible de traiter la demande.");
         return;
       }
-      onSuccess(result.user);
+      onSuccess(result.user, mode === "register");
     } catch (submitError) {
       console.error("Authentification impossible :", submitError);
       setError("Le service est momentanément indisponible. Réessayez.");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (pendingApproval) {
-    return (
-      <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-        <section className="artisan-modal auth-modal auth-register-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-          <button className="modal-close" onClick={onClose} aria-label="Fermer">×</button>
-          <p className="eyebrow">PROFIL TRANSMIS</p>
-          <h2 id="auth-title">Votre profil est en attente</h2>
-          <p className="modal-description">{notice}</p>
-          <p className="form-hint">Un administrateur vérifiera les informations avant d’activer votre compte artisan.</p>
-          <button className="primary-button" onClick={onClose}>Fermer</button>
-        </section>
-      </div>
-    );
   }
 
   return (
@@ -122,7 +101,7 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
             <label>Adresse e-mail<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
             <label>Mot de passe<input type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} required minLength={mode === "register" ? 12 : undefined} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           </>}
-          {mode === "register" && accountRole && <small className="form-hint">{accountRole === "ARTISAN" ? "Votre profil sera soumis à l’administration. Vous pourrez vous connecter après son approbation." : "Votre compte client sera prêt immédiatement."} Le mot de passe doit contenir au moins 12 caractères.</small>}
+          {mode === "register" && accountRole && <small className="form-hint">{accountRole === "ARTISAN" ? "Votre compte sera créé immédiatement. Envoyez ensuite votre pièce d’identité dans votre profil pour demander la vérification." : "Votre compte client sera prêt immédiatement."} Le mot de passe doit contenir au moins 12 caractères.</small>}
           {error && <p className="form-error" role="alert">{error}</p>}
           {notice && <p className="form-hint" role="status">{notice}</p>}
           <button className="primary-button" type="submit" disabled={submitting || (mode === "register" && !accountRole)}>{submitting ? "Patientez…" : mode === "register" ? "Créer mon compte" : "Se connecter"}</button>
