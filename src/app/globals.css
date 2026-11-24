@@ -65,6 +65,15 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .notification-indicator { position: relative; display: grid; place-items: center; color: #59665f; }
 .notification-indicator i { position: absolute; top: 0; right: 0; width: 6px; height: 6px; border: 1px solid white; border-radius: 50%; background: #da856d; }
 .content { max-width: 1150px; margin: 0 auto; padding: 35px 5.4% 55px; }
+.signed-out-page { display: grid; min-height: 100dvh; grid-template-rows: auto 1fr; padding: 28px 5.4%; background: #f7f9f7; }
+.signed-out-content { width: min(100%, 430px); align-self: center; justify-self: center; padding: 40px 0 90px; }
+.signed-out-symbol { display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: 25px; border: 1px solid #cfe1d4; border-radius: 50%; background: #eaf3ed; color: var(--green-dark); font-size: 23px; }
+.signed-out-content h1 { margin: 0 0 10px; color: #25332d; font-family: Georgia, "Times New Roman", serif; font-size: 32px; font-weight: 500; line-height: 1.15; }
+.signed-out-content > p:not(.eyebrow) { margin: 0; color: #66766d; font-size: 14px; line-height: 1.6; }
+.signed-out-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 25px; }
+.signed-out-actions .primary-button { min-height: 44px; margin: 0; padding: 0 19px; font-size: 12px; }
+.signed-out-link { color: var(--green-dark); font-size: 12px; font-weight: 600; text-decoration: none; }
+.signed-out-link:hover { text-decoration: underline; }
 .verification-notice { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 14px; margin-bottom: 24px; padding: 16px 18px; border: 1px solid #e3e9e5; border-left: 4px solid #bb8741; border-radius: 8px; background: #fff; color: #25332d; box-shadow: 0 3px 14px rgb(34 52 42 / 7%); }
 .verification-notice-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 8px; background: #f9f1e4; color: #96652c; }
 .verification-notice > div { min-width: 0; }

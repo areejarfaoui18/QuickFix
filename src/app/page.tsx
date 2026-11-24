@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminArtisansPanel } from "@/components/admin-artisans-panel";
 import { AiAssistant } from "@/components/ai-assistant";
 import { MessagesPanel } from "@/components/messages-panel";
@@ -88,11 +89,14 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [artisans, setArtisans] = useState<Artisan[]>([]);
   const [artisansLoading, setArtisansLoading] = useState(true);
   const [artisansError, setArtisansError] = useState(false);
   const [reloadArtisans, setReloadArtisans] = useState(0);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [logoutError, setLogoutError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
   const [authDialog, setAuthDialog] = useState<"login" | "register" | null>(null);
   const [requestTarget, setRequestTarget] = useState<Artisan | null>(null);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
@@ -313,14 +317,19 @@ export default function Home() {
   const homeTab: Tab = currentUser?.role === "ADMIN" ? "Vérification artisan" : "Explorer";
 
   async function logout() {
+    setLogoutError("");
+    setLoggingOut(true);
     try {
       const response = await fetch("/api/auth/session", { method: "DELETE" });
       if (!response.ok) throw new Error("Impossible de fermer la session.");
       setCurrentUser(null);
       setPendingRequestCount(0);
-      setActiveTab("Explorer");
+      router.replace("/signed-out");
     } catch (error) {
       console.error("Déconnexion impossible :", error);
+      setLogoutError("Impossible de vous déconnecter. Réessayez.");
+    } finally {
+      setLoggingOut(false);
     }
   }
 
@@ -361,11 +370,12 @@ export default function Home() {
           <button className="mobile-brand brand" onClick={() => setActiveTab(homeTab)}><span className="brand-mark">q<span>.</span></span><span>quickfix</span></button>
           <div className="location"><Icon name="pin" size={17} /><span><small>VOTRE LOCALISATION</small><strong>Tunis, Tunisie</strong></span><span className="chevron">⌄</span></div>
           <div className="topbar-actions">
-            {currentUser ? <><span className="user-greeting">{currentUser.name}</span><button className="auth-top-button" onClick={() => void logout()}>Déconnexion</button></> : <><button className="auth-top-button" onClick={() => setAuthDialog("login")}>Connexion</button><button className="auth-top-button auth-top-primary" onClick={() => setAuthDialog("register")}>Inscription</button></>}
+            {currentUser ? <><span className="user-greeting">{currentUser.name}</span><button className="auth-top-button" disabled={loggingOut} onClick={() => void logout()}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></> : <><button className="auth-top-button" onClick={() => setAuthDialog("login")}>Connexion</button><button className="auth-top-button auth-top-primary" onClick={() => setAuthDialog("register")}>Inscription</button></>}
           </div>
         </header>
 
         <div className="content">
+          {logoutError && <p className="form-error" role="alert">{logoutError}</p>}
           {currentUser?.role === "ARTISAN" && (currentUser.mustChangePassword || !identityVerification || identityVerification.status !== "VERIFIED" || !identityVerification.hasDocument) && <section className="verification-notice" role="status" aria-label="Vérification d’identité">
             <span className="verification-notice-icon"><Icon name={identityVerification?.status === "PENDING" && identityVerification.hasDocument ? "clock" : "verified"} size={19} /></span>
             <div>
