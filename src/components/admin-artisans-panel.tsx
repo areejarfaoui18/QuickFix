@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminArtisanManagement } from "@/components/admin-artisan-management";
+import { IdentityOcrSummary, type IdentityOcrResult } from "@/components/identity-ocr-summary";
 
 type PendingArtisan = {
   id: string;
@@ -16,6 +17,8 @@ type PendingArtisan = {
   indicativePriceMin: number | null;
   indicativePriceMax: number | null;
   hasIdentityDocument: boolean;
+  identityOcr: IdentityOcrResult | null;
+  identityOcrAvailable: boolean;
   createdAt: string;
 };
 
@@ -197,6 +200,7 @@ export function AdminArtisansPanel({ page, onOpenMessages }: { page: AdminPage; 
               </dl>
               <p className="admin-bio">{artisan.bio || "Aucune présentation renseignée."}</p>
               {artisan.hasIdentityDocument ? <p><a className="text-link" href={`/api/artisan/verification?profileId=${encodeURIComponent(artisan.id)}`}>Télécharger la pièce d’identité</a></p> : <p className="form-hint">Aucune pièce d’identité envoyée.</p>}
+              {artisan.hasIdentityDocument && artisan.identityOcrAvailable && <IdentityOcrSummary profileId={artisan.id} accountName={artisan.name} ocr={artisan.identityOcr} onRestarted={() => setReloadKey((key) => key + 1)} />}
               {artisan.isSuspended && artisan.suspensionReason === "Attente de validation administrative" && <p className="form-hint">L’artisan peut se connecter pour envoyer sa pièce d’identité.</p>}
               {artisan.isSuspended && artisan.suspensionReason !== "Attente de validation administrative" && <p className="form-error">Ce compte est suspendu pour une autre raison. Réactivez-le depuis « Gestion des artisans » avant l’approbation.</p>}
               <label className="admin-reason">Motif de refus (obligatoire en cas de refus)

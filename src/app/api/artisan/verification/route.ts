@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Readable } from "node:stream";
 import { getAuthenticatedUser, hasSameOrigin } from "@/lib/auth";
+import { isIdentityOcrConfigured, scheduleIdentityOcr } from "@/lib/identity-ocr";
 import { detectAttachmentType, getIdentityDocumentBucket, MAX_ATTACHMENT_SIZE, uploadIdentityDocument } from "@/lib/message-attachments";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ArtisanProfile } from "@/models/artisan-profile";
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
 
     const previousFileId = profile.identityDocument?.fileId;
     const fileId = await uploadIdentityDocument(buffer, mimeType);
+    const ocrEnabled = isIdentityOcrConfigured();
     let updated;
     try {
       updated = await ArtisanProfile.findOneAndUpdate(
@@ -99,8 +101,13 @@ export async function POST(request: Request) {
           "identityDocument.fileId": previousFileId ?? { $exists: false },
         },
         {
-          $set: { identityDocument: { fileId, mimeType, size: buffer.length }, verificationStatus: "PENDING", verificationReason: "" },
-          $unset: { verifiedBy: 1, verifiedAt: 1 },
+          $set: {
+            identityDocument: { fileId, mimeType, size: buffer.length },
+            verificationStatus: "PENDING",
+            verificationReason: "",
+            ...(ocrEnabled ? { identityOcr: { status: "PROCESSING", fileId } } : {}),
+          },
+          $unset: { verifiedBy: 1, verifiedAt: 1, ...(ocrEnabled ? {} : { identityOcr: 1 }) },
         },
         { new: true, runValidators: true },
       );
@@ -123,6 +130,7 @@ export async function POST(request: Request) {
         console.error("Suppression de l’ancienne pièce d’identité impossible :", error);
       }
     }
+    scheduleIdentityOcr(profile._id, fileId);
     return Response.json({ status: "PENDING", hasDocument: true }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Envoi de la pièce d’identité impossible :", error);

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import mongoose from "mongoose";
 import { getAuthenticatedUser, hasSameOrigin } from "@/lib/auth";
+import { isIdentityOcrConfigured } from "@/lib/identity-ocr";
 import { connectToDatabase } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/password";
 import { ArtisanProfile } from "@/models/artisan-profile";
@@ -56,6 +57,24 @@ export async function GET(request: Request) {
           suspensionReason: "$user.suspensionReason",
           verificationStatus: 1,
           hasIdentityDocument: { $ne: [{ $ifNull: ["$identityDocument.fileId", null] }, null] },
+          identityOcr: {
+            $cond: [
+              { $eq: ["$identityOcr.fileId", "$identityDocument.fileId"] },
+              {
+                status: "$identityOcr.status",
+                documentType: "$identityOcr.documentType",
+                readable: "$identityOcr.readable",
+                fullName: "$identityOcr.fullName",
+                fullNameLatin: "$identityOcr.fullNameLatin",
+                documentNumber: "$identityOcr.documentNumber",
+                birthDate: "$identityOcr.birthDate",
+                expiryDate: "$identityOcr.expiryDate",
+                nameMatch: "$identityOcr.nameMatch",
+              },
+              null,
+            ],
+          },
+          identityOcrAvailable: { $literal: isIdentityOcrConfigured() },
           isAvailable: 1,
           category: 1,
           city: 1,

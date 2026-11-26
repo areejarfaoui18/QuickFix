@@ -395,6 +395,9 @@ h1, h2, p { margin-top: 0; }
 .admin-reason textarea { width: 100%; padding: 9px 10px; border: 1px solid #dfe7e1; border-radius: 7px; color: var(--ink); font-size: 11px; resize: vertical; }
 .admin-artisan-card .request-actions .secondary-button { color: #95665d; }
 .admin-notice { margin: 0 0 14px; padding: 11px 13px; border: 1px solid #dcebdd; border-radius: 8px; background: #edf5ee; color: #4f7758; font-size: 10px; line-height: 1.5; }
+.identity-ocr { margin: 12px 0; padding: 11px 13px; border: 1px solid #dfe7e1; border-radius: 8px; background: #fafbf9; }
+.identity-ocr-title { margin: 0 0 4px; color: #526158; font-size: 10px; font-weight: 650; }
+.identity-ocr .admin-artisan-details { margin: 6px 0 8px; }
 .admin-review-rating { margin: 12px 0 0; }
 .admin-review-rating span { margin-left: 5px; color: #7c8069; font-size: 10px; letter-spacing: 0; }
 .review-rating-picker { display: grid; gap: 7px; margin: 0; padding: 0; border: 0; }
