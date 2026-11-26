@@ -1,6 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { createSession, hasSameOrigin, sessionCookie } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
+import { ArtisanProfile } from "@/models/artisan-profile";
 import { User } from "@/models/user";
 
 const INVALID_ACCOUNT_HASH = `scrypt$16384$8$1$${"0".repeat(32)}$${"0".repeat(128)}`;
@@ -38,7 +39,16 @@ export async function POST(request: Request) {
       return Response.json({ error: "Adresse e-mail ou mot de passe incorrect." }, { status: 401 });
     }
     if (user.isSuspended) {
-      return Response.json({ error: "Ce compte est suspendu. Contactez l’assistance." }, { status: 403 });
+      if (user.role === "ARTISAN" && user.suspensionReason === "Attente de validation administrative") {
+        const profile = await ArtisanProfile.exists({ userId: user._id, verificationStatus: { $in: ["PENDING", "REJECTED"] } });
+        const reactivated = profile && await User.findOneAndUpdate(
+          { _id: user._id, role: "ARTISAN", isSuspended: true, suspensionReason: "Attente de validation administrative" },
+          { $set: { isSuspended: false, suspensionReason: "" } },
+        );
+        if (!reactivated) return Response.json({ error: "Ce compte est suspendu. Contactez l’assistance." }, { status: 403 });
+      } else {
+        return Response.json({ error: "Ce compte est suspendu. Contactez l’assistance." }, { status: 403 });
+      }
     }
 
     const token = await createSession(user._id);

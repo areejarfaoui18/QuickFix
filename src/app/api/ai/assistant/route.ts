@@ -63,8 +63,38 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      console.error("OpenAI a refusé la demande de l’assistant :", response.status);
-      return Response.json({ error: "L’assistant IA est momentanément indisponible. Réessayez dans quelques instants." }, { status: 502 });
+      let errorCode = "";
+      try {
+        const errorBody: unknown = await response.json();
+        if (
+          isRecord(errorBody) &&
+          isRecord(errorBody.error) &&
+          typeof errorBody.error.code === "string"
+        ) {
+          errorCode = errorBody.error.code;
+        }
+      } catch {
+        console.warn("OpenAI a renvoyé une erreur sans détail JSON exploitable.");
+      }
+
+      console.error("OpenAI a refusé la demande de l’assistant :", { status: response.status, code: errorCode || "unknown" });
+
+      if (response.status === 401 || errorCode === "invalid_api_key") {
+        return Response.json({ error: "La clé OpenAI configurée est refusée. Vérifiez OPENAI_API_KEY dans .env.local, puis redémarrez le serveur." }, { status: 502 });
+      }
+      if (response.status === 429 && errorCode === "insufficient_quota") {
+        return Response.json({ error: "Le compte API OpenAI n’a plus de crédit disponible. Vérifiez la facturation et les limites sur la plateforme OpenAI." }, { status: 503 });
+      }
+      if (response.status === 429) {
+        return Response.json({ error: "La limite de requêtes OpenAI est atteinte. Attendez un peu puis réessayez." }, { status: 503 });
+      }
+      if (response.status === 404 || errorCode === "model_not_found") {
+        return Response.json({ error: "Le modèle OpenAI configuré n’est pas disponible. Vérifiez OPENAI_MODEL dans .env.local ou utilisez gpt-4o-mini." }, { status: 502 });
+      }
+      if (response.status >= 500) {
+        return Response.json({ error: "Le service OpenAI rencontre un problème temporaire. Réessayez dans quelques instants." }, { status: 503 });
+      }
+      return Response.json({ error: "OpenAI a refusé la requête. Vérifiez le modèle configuré et les accès API du compte." }, { status: 502 });
     }
 
     const result: unknown = await response.json();

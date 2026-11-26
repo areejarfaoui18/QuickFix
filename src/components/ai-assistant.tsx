@@ -42,7 +42,6 @@ export function AiAssistant({ onSelectCategory, onClose }: { onSelectCategory: (
       if (!response.ok || !result.message) throw new Error(result.error ?? "Impossible d’obtenir une réponse.");
       setMessages((current) => [...current, { role: "assistant", content: result.message!, category: result.category }]);
     } catch (sendError) {
-      console.error("Envoi à l’assistant IA impossible :", sendError);
       setError(sendError instanceof Error ? sendError.message : "L’assistant est momentanément indisponible.");
     } finally {
       setLoading(false);

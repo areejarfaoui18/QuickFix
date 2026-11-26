@@ -23,7 +23,7 @@ export async function GET() {
   try {
     await connectToDatabase();
     const artisans = await ArtisanProfile.aggregate<ArtisanListItem>([
-      { $match: { verificationStatus: "VERIFIED" } },
+      { $match: { verificationStatus: "VERIFIED", "identityDocument.fileId": { $exists: true } } },
       {
         $lookup: {
           from: User.collection.name,

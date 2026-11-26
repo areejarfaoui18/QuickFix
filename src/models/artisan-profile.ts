@@ -1,4 +1,4 @@
-import { model, models, Schema, type InferSchemaType } from "mongoose";
+import { deleteModel, model, models, Schema, type InferSchemaType } from "mongoose";
 
 const artisanProfileSchema = new Schema(
   {
@@ -10,6 +10,11 @@ const artisanProfileSchema = new Schema(
     indicativePriceMax: { type: Number, min: 0 },
     isAvailable: { type: Boolean, default: true },
     verificationStatus: { type: String, enum: ["PENDING", "VERIFIED", "REJECTED"], default: "PENDING" },
+    identityDocument: {
+      fileId: { type: Schema.Types.ObjectId },
+      mimeType: { type: String, enum: ["image/jpeg", "image/png", "image/webp", "application/pdf"] },
+      size: { type: Number, min: 1, max: 5 * 1024 * 1024 },
+    },
     verificationReason: { type: String, trim: true, maxlength: 500 },
     verifiedBy: { type: Schema.Types.ObjectId, ref: "User" },
     verifiedAt: { type: Date },
@@ -18,4 +23,7 @@ const artisanProfileSchema = new Schema(
 );
 
 export type ArtisanProfileDocument = InferSchemaType<typeof artisanProfileSchema>;
+if (models.ArtisanProfile && ["identityDocument.fileId", "identityDocument.mimeType", "identityDocument.size"].some((path) => !models.ArtisanProfile.schema.path(path))) {
+  deleteModel("ArtisanProfile");
+}
 export const ArtisanProfile = models.ArtisanProfile ?? model("ArtisanProfile", artisanProfileSchema);

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminArtisansPanel } from "@/components/admin-artisans-panel";
 import { AiAssistant } from "@/components/ai-assistant";
+import { MessagesPanel } from "@/components/messages-panel";
+import { MarketplaceBoard } from "@/components/marketplace-board";
 import { PwaInstallButton } from "@/components/pwa-install-button";
-import { AccountPanel } from "@/components/account-panel";
+import { AccountPanel, type IdentityVerification } from "@/components/account-panel";
+import { IdentityVerificationPanel } from "@/components/identity-verification-panel";
 import { AuthDialog, type AppUser } from "@/components/auth-dialog";
 import { RequestDialog } from "@/components/request-dialog";
 import { RequestsPanel } from "@/components/requests-panel";
@@ -46,7 +50,25 @@ type ArtisanListItem = {
 };
 
 const artisanTones = ["sage", "lavender", "peach", "blue"];
-type Tab = "Explorer" | "Mes demandes" | "Messages" | "Profil" | "Administration";
+type AdminTab = "Vérification artisan" | "Artisans" | "Avis clients" | "Réclamations";
+type Tab = "Explorer" | "Missions" | "Mes demandes" | "Messages" | "Profil" | "Vérification d’identité" | AdminTab;
+
+const adminTabs: AdminTab[] = ["Vérification artisan", "Artisans", "Avis clients", "Réclamations"];
+const adminPageByTab: Record<AdminTab, "verification" | "management" | "reviews" | "reports"> = {
+  "Vérification artisan": "verification",
+  Artisans: "management",
+  "Avis clients": "reviews",
+  Réclamations: "reports",
+};
+
+function tabIcon(tab: Tab): string {
+  if (tab === "Explorer") return "home";
+  if (tab === "Missions") return "clipboard";
+  if (tab === "Mes demandes") return "clipboard";
+  if (tab === "Messages") return "chat";
+  if (tab === "Profil") return "user";
+  return "verified";
+}
 
 function Icon({ name, size = 20 }: { name: string; size?: number }) {
   const shared = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
@@ -69,14 +91,23 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [artisans, setArtisans] = useState<Artisan[]>([]);
   const [artisansLoading, setArtisansLoading] = useState(true);
   const [artisansError, setArtisansError] = useState(false);
   const [reloadArtisans, setReloadArtisans] = useState(0);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [logoutError, setLogoutError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
   const [authDialog, setAuthDialog] = useState<"login" | "register" | null>(null);
   const [requestTarget, setRequestTarget] = useState<Artisan | null>(null);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+  const [pendingMessageTargetId, setPendingMessageTargetId] = useState<string | null>(null);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
+  const [verificationState, setVerificationState] = useState<{ userId: string; verification: IdentityVerification | null; error: string } | null>(null);
+  const [verificationVersion, setVerificationVersion] = useState(0);
+  const verificationRequestId = useRef(0);
   const [requestsVersion, setRequestsVersion] = useState(0);
   const [modalActionError, setModalActionError] = useState("");
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
@@ -96,12 +127,67 @@ export default function Home() {
         const result: { user: AppUser | null } = await response.json();
         setCurrentUser(result.user);
         if (result.user?.mustChangePassword) setActiveTab("Profil");
+        else if (result.user?.role === "ADMIN") setActiveTab("Vérification artisan");
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) console.error("Vérification de session impossible :", error);
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (currentUser?.role !== "ARTISAN" || currentUser.mustChangePassword) return;
+    const userId = currentUser.id;
+    const controller = new AbortController();
+    async function refreshVerification() {
+      const requestId = ++verificationRequestId.current;
+      try {
+        const response = await fetch("/api/artisan/verification", { signal: controller.signal, cache: "no-store" });
+        const result: IdentityVerification & { error?: string } = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Impossible de vérifier votre identité.");
+        if (!controller.signal.aborted && requestId === verificationRequestId.current) setVerificationState({ userId, verification: result, error: "" });
+      } catch (error) {
+        if (!controller.signal.aborted && requestId === verificationRequestId.current) setVerificationState({ userId, verification: null, error: error instanceof Error ? error.message : "Impossible de vérifier votre identité." });
+      }
+    }
+    void refreshVerification();
+    const timer = window.setInterval(() => void refreshVerification(), 30_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [currentUser?.id, currentUser?.role, currentUser?.mustChangePassword, verificationVersion]);
+
+  useEffect(() => {
+    if (currentUser?.role !== "ARTISAN" || currentUser.mustChangePassword) {
+      return;
+    }
+
+    async function refreshPendingRequests() {
+      try {
+        const response = await fetch("/api/requests?summary=pending", { cache: "no-store", signal: controller.signal });
+        const result: { pendingCount?: number; error?: string } = await response.json();
+        if (!response.ok || typeof result.pendingCount !== "number") {
+          throw new Error(result.error ?? "Impossible de vérifier les nouvelles demandes.");
+        }
+        setPendingRequestCount(result.pendingCount);
+      } catch (error) {
+        if (!controller.signal.aborted) console.error("Vérification des nouvelles demandes impossible :", error);
+      }
+    }
+
+    const controller = new AbortController();
+    void refreshPendingRequests();
+    const timer = window.setInterval(() => void refreshPendingRequests(), 15_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [currentUser?.id, currentUser?.mustChangePassword, currentUser?.role]);
+
+  const visiblePendingRequestCount = currentUser?.role === "ARTISAN" && !currentUser.mustChangePassword ? pendingRequestCount : 0;
+  const currentVerification = verificationState?.userId === currentUser?.id ? verificationState : null;
+  const identityVerification = currentVerification?.verification ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -170,8 +256,16 @@ export default function Home() {
       setActiveTab("Profil");
       return;
     }
-    if (tab === "Administration" && currentUser?.role !== "ADMIN") return;
-    if ((tab === "Mes demandes" || tab === "Profil") && !currentUser) {
+    if (currentUser?.role === "ADMIN" && (tab === "Explorer" || tab === "Missions" || tab === "Mes demandes")) {
+      setActiveTab("Vérification artisan");
+      return;
+    }
+    if (tab === "Vérification d’identité" && currentUser?.role !== "ARTISAN") return;
+    if (adminTabs.includes(tab as AdminTab) && currentUser?.role !== "ADMIN") return;
+    if (tab === "Avis clients" || tab === "Réclamations") {
+      setModalActionError("");
+    }
+    if ((tab === "Missions" || tab === "Mes demandes" || tab === "Profil" || tab === "Messages") && !currentUser) {
       setPendingTab(tab);
       setAuthDialog("login");
       return;
@@ -179,49 +273,86 @@ export default function Home() {
     setActiveTab(tab);
   }
 
-  function finishAuthentication(user: AppUser) {
+  function finishAuthentication(user: AppUser, registered = false) {
     setCurrentUser(user);
+    setPendingRequestCount(0);
     setAuthDialog(null);
+    if (pendingMessageTargetId && user.role !== "CLIENT") {
+      setPendingMessageTargetId(null);
+      setPendingTab(null);
+      setModalActionError("Connectez-vous avec un compte client pour écrire à un artisan.");
+      return;
+    }
+    if (pendingMessageTargetId) setSelectedArtisan(null);
     if (user.mustChangePassword) {
       setActiveTab("Profil");
       setPendingTab(null);
       return;
     }
+    setActiveTab(user.role === "ADMIN" ? "Vérification artisan" : registered && user.role === "ARTISAN" ? "Profil" : "Explorer");
     if (pendingTab) {
-      setActiveTab(pendingTab);
+      const adminRestrictedTab = user.role === "ADMIN" && (pendingTab === "Explorer" || pendingTab === "Missions" || pendingTab === "Mes demandes");
+      setActiveTab(adminRestrictedTab ? "Vérification artisan" : pendingTab);
       setPendingTab(null);
     }
-    if (selectedArtisan && user.role === "CLIENT") setRequestTarget(selectedArtisan);
+    if (selectedArtisan && user.role === "CLIENT" && !pendingMessageTargetId) setRequestTarget(selectedArtisan);
   }
 
+  const openMessages = useCallback((artisanId?: string) => {
+    if (currentUser?.mustChangePassword) {
+      setActiveTab("Profil");
+      return;
+    }
+    if (!currentUser) {
+      if (artisanId) setPendingMessageTargetId(artisanId);
+      setPendingTab("Messages");
+      setAuthDialog("login");
+      return;
+    }
+    if (artisanId && (currentUser.role === "CLIENT" || currentUser.role === "ADMIN")) setPendingMessageTargetId(artisanId);
+    setSelectedArtisan(null);
+    setActiveTab("Messages");
+  }, [currentUser]);
+
+  const clearPendingMessageTarget = useCallback(() => setPendingMessageTargetId(null), []);
+  const updateUnreadMessageCount = useCallback((count: number) => setUnreadMessageCount(count), []);
+  const homeTab: Tab = currentUser?.role === "ADMIN" ? "Vérification artisan" : "Explorer";
+
   async function logout() {
+    setLogoutError("");
+    setLoggingOut(true);
     try {
       const response = await fetch("/api/auth/session", { method: "DELETE" });
       if (!response.ok) throw new Error("Impossible de fermer la session.");
       setCurrentUser(null);
-      setActiveTab("Explorer");
+      setPendingRequestCount(0);
+      router.replace("/signed-out");
     } catch (error) {
       console.error("Déconnexion impossible :", error);
+      setLogoutError("Impossible de vous déconnecter. Réessayez.");
+    } finally {
+      setLoggingOut(false);
     }
   }
 
   const navigationTabs: Tab[] = currentUser?.role === "ADMIN"
-    ? ["Explorer", "Mes demandes", "Messages", "Profil", "Administration"]
-    : ["Explorer", "Mes demandes", "Messages", "Profil"];
+    ? adminTabs
+    : ["Explorer", "Missions", "Mes demandes", "Messages", "Profil"];
 
   return (
     <main className="app-shell">
       <aside className="desktop-sidebar">
-        <a className="brand" href="#" onClick={() => setActiveTab("Explorer")} aria-label="QuickFix, accueil">
+        <a className="brand" href="#" onClick={() => setActiveTab(homeTab)} aria-label="QuickFix, accueil">
           <span className="brand-mark">q<span>.</span></span><span>quickfix</span>
         </a>
         <span className="sidebar-label">MENU</span>
         <nav className="side-nav" aria-label="Navigation principale">
           {navigationTabs.map((tab) => (
             <button key={tab} className={activeTab === tab ? "side-link active" : "side-link"} onClick={() => selectTab(tab)}>
-              <Icon name={{ Explorer: "home", "Mes demandes": "clipboard", Messages: "chat", Profil: "user", Administration: "verified" }[tab]} size={19} />
+              <Icon name={tabIcon(tab)} size={19} />
+              {tab === "Mes demandes" && visiblePendingRequestCount > 0 && <span className="request-nav-dot" aria-label={`${visiblePendingRequestCount} nouvelle${visiblePendingRequestCount > 1 ? "s" : ""} demande${visiblePendingRequestCount > 1 ? "s" : ""}`} />}
               <span>{tab}</span>
-              {tab === "Messages" && <span className="unread-dot" />}
+              {tab === "Messages" && unreadMessageCount > 0 && <span className="unread-dot" />}
             </button>
           ))}
         </nav>
@@ -238,14 +369,23 @@ export default function Home() {
 
       <section className="workspace">
         <header className="topbar">
-          <button className="mobile-brand brand" onClick={() => setActiveTab("Explorer")}><span className="brand-mark">q<span>.</span></span><span>quickfix</span></button>
+          <button className="mobile-brand brand" onClick={() => setActiveTab(homeTab)}><span className="brand-mark">q<span>.</span></span><span>quickfix</span></button>
           <div className="location"><Icon name="pin" size={17} /><span><small>VOTRE LOCALISATION</small><strong>Tunis, Tunisie</strong></span><span className="chevron">⌄</span></div>
           <div className="topbar-actions">
-            {currentUser ? <><span className="user-greeting">{currentUser.name}</span><button className="auth-top-button" onClick={() => void logout()}>Déconnexion</button></> : <><button className="auth-top-button" onClick={() => setAuthDialog("login")}>Connexion</button><button className="auth-top-button auth-top-primary" onClick={() => setAuthDialog("register")}>Inscription</button></>}
+            {currentUser ? <><span className="user-greeting">{currentUser.name}</span><button className="auth-top-button" disabled={loggingOut} onClick={() => void logout()}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></> : <><button className="auth-top-button" onClick={() => setAuthDialog("login")}>Connexion</button><button className="auth-top-button auth-top-primary" onClick={() => setAuthDialog("register")}>Inscription</button></>}
           </div>
         </header>
 
         <div className="content">
+          {logoutError && <p className="form-error" role="alert">{logoutError}</p>}
+          {currentUser?.role === "ARTISAN" && (currentUser.mustChangePassword || !identityVerification || identityVerification.status !== "VERIFIED" || !identityVerification.hasDocument) && <section className="verification-notice" role="status" aria-label="Vérification d’identité">
+            <span className="verification-notice-icon"><Icon name={identityVerification?.status === "PENDING" && identityVerification.hasDocument ? "clock" : "verified"} size={19} /></span>
+            <div>
+              <strong>{currentUser.mustChangePassword ? "Mot de passe temporaire à changer" : currentVerification?.error ? "Vérification indisponible" : !identityVerification ? "Vérification de votre dossier…" : identityVerification.status === "REJECTED" ? "Vérification d’identité refusée" : identityVerification.status === "PENDING" && identityVerification.hasDocument ? "Vérification d’identité en attente" : "Vérification d’identité requise"}</strong>
+              <p>{currentUser.mustChangePassword ? "Changez votre mot de passe avant de vérifier votre identité." : currentVerification?.error ? "Impossible de vérifier votre dossier pour le moment." : !identityVerification ? "Chargement de votre statut de vérification." : identityVerification.status === "REJECTED" ? "Consultez le motif et envoyez une nouvelle pièce d’identité pour recevoir des demandes." : identityVerification.status === "PENDING" && identityVerification.hasDocument ? "Votre pièce d’identité a été envoyée. Vous pourrez recevoir des demandes après l’approbation de l’administration." : "Envoyez votre pièce d’identité et attendez son approbation pour recevoir des demandes."}</p>
+            </div>
+            {currentVerification?.error && !currentUser.mustChangePassword ? <button className="secondary-button" onClick={() => setVerificationVersion((version) => version + 1)}>Réessayer</button> : currentUser.mustChangePassword ? <button className="secondary-button" onClick={() => selectTab("Profil")}>Changer le mot de passe</button> : identityVerification && (identityVerification.status === "REJECTED" || !identityVerification.hasDocument) ? <button className="secondary-button" onClick={() => selectTab("Vérification d’identité")}>{identityVerification.status === "REJECTED" ? "Envoyer une nouvelle pièce" : "Vérifier mon identité"}</button> : null}
+          </section>}
           {activeTab === "Explorer" ? (
             <>
               <section className="welcome-row">
@@ -309,25 +449,44 @@ export default function Home() {
 
               <section className="trust-strip"><span className="trust-icon"><Icon name="verified" size={19} /></span><span><strong>Des professionnels vérifiés, pour de vrai.</strong><small>Chaque profil est contrôlé par notre équipe avant d&apos;être publié.</small></span><Icon name="arrow" size={17} /></section>
             </>
+          ) : activeTab === "Missions" && currentUser && (currentUser.role === "CLIENT" || currentUser.role === "ARTISAN") ? (
+            <MarketplaceBoard user={currentUser} onOpenRequests={() => { setRequestsVersion((version) => version + 1); setActiveTab("Mes demandes"); }} />
           ) : activeTab === "Mes demandes" && currentUser ? (
-            <RequestsPanel user={currentUser} refreshKey={requestsVersion} />
+            <RequestsPanel user={currentUser} refreshKey={requestsVersion} onOpenMessages={openMessages} />
+          ) : activeTab === "Messages" && currentUser ? (
+            <MessagesPanel
+              user={currentUser}
+              initialArtisanId={pendingMessageTargetId}
+              onInitialTargetHandled={clearPendingMessageTarget}
+              onBrowseArtisans={() => { setActiveTab("Explorer"); setActiveCategory("Tout"); }}
+              onUnreadCountChange={updateUnreadMessageCount}
+            />
           ) : activeTab === "Profil" && currentUser ? (
-            <AccountPanel user={currentUser} onPasswordChanged={() => setCurrentUser({ ...currentUser, mustChangePassword: false })} />
-          ) : activeTab === "Administration" && currentUser?.role === "ADMIN" ? (
-            <AdminArtisansPanel />
+            <AccountPanel user={currentUser} onPasswordChanged={() => setCurrentUser({ ...currentUser, mustChangePassword: false })} verification={identityVerification} verificationError={currentVerification?.error ?? ""} onOpenVerification={() => selectTab("Vérification d’identité")} />
+          ) : activeTab === "Vérification d’identité" && currentUser?.role === "ARTISAN" && !currentUser.mustChangePassword ? (
+            <IdentityVerificationPanel verification={identityVerification} verificationError={currentVerification?.error ?? ""} onBack={() => selectTab("Profil")} onRefreshVerification={() => {
+              verificationRequestId.current += 1;
+              setVerificationVersion((version) => version + 1);
+            }} onVerificationChanged={(verification) => {
+              verificationRequestId.current += 1;
+              setVerificationState({ userId: currentUser.id, verification, error: "" });
+              setVerificationVersion((version) => version + 1);
+            }} />
+          ) : adminTabs.includes(activeTab as AdminTab) && currentUser?.role === "ADMIN" ? (
+            <AdminArtisansPanel page={adminPageByTab[activeTab as AdminTab]} onOpenMessages={openMessages} />
           ) : (
             <section className="tab-placeholder">
-              <span className="placeholder-icon"><Icon name={{ Explorer: "home", "Mes demandes": "clipboard", Messages: "chat", Profil: "user", Administration: "verified" }[activeTab]} size={27} /></span>
+              <span className="placeholder-icon"><Icon name={tabIcon(activeTab)} size={27} /></span>
               <p className="eyebrow">VOTRE ESPACE QUICKFIX</p>
               <h1>{activeTab}</h1>
-              <p>{activeTab === "Mes demandes" ? "Retrouvez ici le suivi de vos demandes d'intervention." : activeTab === "Messages" ? "Vos échanges avec les artisans apparaîtront ici." : "Gérez vos informations et préférences."}</p>
+              <p>{activeTab === "Mes demandes" ? "Retrouvez ici le suivi de vos demandes d'intervention." : activeTab === "Messages" ? "Connectez-vous comme client ou artisan pour consulter vos conversations." : "Gérez vos informations et préférences."}</p>
               <button className="primary-button" onClick={() => selectTab("Explorer")}>Explorer les artisans <Icon name="arrow" size={17} /></button>
             </section>
           )}
         </div>
 
         <nav className="bottom-nav" aria-label="Navigation mobile">
-          {navigationTabs.map((tab) => <button key={tab} className={activeTab === tab ? "bottom-link active" : "bottom-link"} onClick={() => selectTab(tab)}><span className="bottom-icon"><Icon name={{ Explorer: "home", "Mes demandes": "clipboard", Messages: "chat", Profil: "user", Administration: "verified" }[tab]} size={20} />{tab === "Messages" && <i />}</span><span>{tab === "Mes demandes" ? "Demandes" : tab}</span></button>)}
+          {navigationTabs.map((tab) => <button key={tab} className={activeTab === tab ? "bottom-link active" : "bottom-link"} onClick={() => selectTab(tab)}><span className="bottom-icon"><Icon name={tabIcon(tab)} size={20} />{tab === "Messages" && unreadMessageCount > 0 && <i />}{tab === "Mes demandes" && visiblePendingRequestCount > 0 && <i />}</span><span>{tab === "Mes demandes" ? "Demandes" : tab}</span></button>)}
         </nav>
       </section>
 
@@ -343,11 +502,12 @@ export default function Home() {
             else if (currentUser.role === "CLIENT") setRequestTarget(selectedArtisan);
             else setModalActionError("Connectez-vous avec un compte client pour envoyer une demande.");
           }}>{selectedArtisan.available ? "Demander une intervention" : "Artisan indisponible"}</button>
+          {currentUser?.role !== "ARTISAN" && currentUser?.role !== "ADMIN" && <button className="secondary-button modal-message-cta" onClick={() => openMessages(selectedArtisan.id)}>Envoyer un message</button>}
           {modalActionError && <p className="form-error" role="alert">{modalActionError}</p>}
           <small className="modal-note"><Icon name="clock" size={14} /> Votre adresse ne sera communiquée qu’à l’artisan choisi.</small>
         </section>
       </div>}
-      {authDialog && <AuthDialog initialMode={authDialog} onClose={() => { setAuthDialog(null); setPendingTab(null); }} onSuccess={finishAuthentication} />}
+      {authDialog && <AuthDialog initialMode={authDialog} onClose={() => { setAuthDialog(null); setPendingTab(null); setPendingMessageTargetId(null); }} onSuccess={finishAuthentication} />}
       {aiAssistantOpen && <AiAssistant onClose={() => setAiAssistantOpen(false)} onSelectCategory={(category) => {
         setActiveCategory(category);
         setAiAssistantOpen(false);
