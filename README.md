@@ -1,5 +1,17 @@
 # QuickFix Tunisia
 
+## E-mails de réinitialisation de mot de passe
+
+Pour la démo, les liens de réinitialisation sont envoyés gratuitement depuis une boîte Gmail dédiée. Ajoutez ces valeurs à `.env.local` (ne les commitez jamais) :
+
+```env
+APP_URL=http://localhost:3000
+SMTP_USER=quickfix.demo@gmail.com
+SMTP_APP_PASSWORD=mot-de-passe-d-application-google
+```
+
+Activez d’abord la validation en deux étapes du compte Google, puis créez un mot de passe d’application et utilisez-le pour `SMTP_APP_PASSWORD` ; ne renseignez jamais le mot de passe Gmail habituel. En production, `APP_URL` doit être l’URL HTTPS publique de l’application. Gmail SMTP utilise `smtp.gmail.com` avec une connexion chiffrée et une authentification.
+
 Application web progressive Next.js, pensée d'abord pour mobile, qui met en relation clients et artisans de proximité.
 
 ## Démarrage
