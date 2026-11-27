@@ -24,7 +24,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function isIdentityOcrConfigured(): boolean {
-  return Boolean(process.env.IDENTITY_OCR_URL && process.env.IDENTITY_OCR_TOKEN);
+  return Boolean(process.env.MODAL_AI_URL && process.env.MODAL_AI_TOKEN);
 }
 
 /** Validates the OCR service answer; returns null when it is not usable. */
@@ -93,9 +93,9 @@ async function readStoredDocument(fileId: mongoose.Types.ObjectId): Promise<Buff
 }
 
 async function requestIdentityOcr(document: Buffer, mimeType: string): Promise<IdentityOcrFields> {
-  const response = await fetch(`${process.env.IDENTITY_OCR_URL?.replace(/\/+$/, "")}/ocr`, {
+  const response = await fetch(`${process.env.MODAL_AI_URL?.replace(/\/+$/, "")}/ocr`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${process.env.IDENTITY_OCR_TOKEN}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${process.env.MODAL_AI_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ mime_type: mimeType, document_base64: document.toString("base64") }),
     signal: AbortSignal.timeout(OCR_TIMEOUT_MS),
     cache: "no-store",

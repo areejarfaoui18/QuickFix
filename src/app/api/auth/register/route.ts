@@ -1,3 +1,4 @@
+import { canonicalCity } from "@/lib/cities";
 import { connectToDatabase } from "@/lib/mongodb";
 import { createSession, hasSameOrigin, sessionCookie } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   const phoneDigits = phone.replace(/\D/g, "");
   const role = body.role === "ARTISAN" ? "ARTISAN" : body.role === "CLIENT" ? "CLIENT" : null;
   const category = typeof body.category === "string" ? body.category.trim() : "";
-  const city = typeof body.city === "string" ? body.city.trim() : "";
+  const city = canonicalCity(body.city) ?? "";
   const bio = typeof body.bio === "string" ? body.bio.trim() : "";
   if (!role) {
     return Response.json({ error: "Choisissez un type de compte : client ou artisan." }, { status: 400 });
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
       city.length > 80 ||
       bio.length > 1200)
   ) {
-    return Response.json({ error: "Vérifiez la filière, la ville et la présentation de l’artisan." }, { status: 400 });
+    return Response.json({ error: "Vérifiez la filière, la ville (à choisir dans la liste) et la présentation de l’artisan." }, { status: 400 });
   }
 
   try {

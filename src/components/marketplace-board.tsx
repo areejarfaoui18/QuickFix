@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import type { AppUser } from "@/components/auth-dialog";
+import { tunisianCities } from "@/lib/cities";
 import { calculateCommissionCents, MARKETPLACE_CATEGORIES, MARKETPLACE_COMMISSION_PERCENT } from "@/lib/marketplace";
 
 type JobStatus = "OPEN" | "ASSIGNED" | "CANCELLED";
@@ -217,7 +218,7 @@ export function MarketplaceBoard({ user, onOpenRequests }: { user: AppUser; onOp
         <label>Titre<input name="title" required minLength={5} maxLength={120} /></label>
         <label>Catégorie<select name="category" required defaultValue=""><option value="" disabled>Choisir une catégorie</option>{MARKETPLACE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
         <label>Description<textarea name="description" required minLength={20} maxLength={2000} rows={4} /><small>La description est visible par les artisans. N’y indiquez pas votre adresse ou vos coordonnées.</small></label>
-        <div className="request-form-row"><label>Ville<input name="city" required minLength={2} maxLength={80} autoComplete="address-level2" /></label><label>Date souhaitée<input name="scheduledAt" type="datetime-local" required min={localDateTime(new Date(now))} defaultValue={localDateTime(new Date(now + 86400000))} /></label></div>
+        <div className="request-form-row"><label>Ville<select name="city" required defaultValue=""><option value="" disabled>Choisir une ville</option>{tunisianCities.map((cityName) => <option key={cityName} value={cityName}>{cityName}</option>)}</select></label><label>Date souhaitée<input name="scheduledAt" type="datetime-local" required min={localDateTime(new Date(now))} defaultValue={localDateTime(new Date(now + 86400000))} /></label></div>
         <label>Adresse d’intervention<input name="address" required maxLength={300} autoComplete="street-address" /><small>Partagée uniquement avec l’artisan choisi.</small></label>
         <div className="request-form-row"><label>Budget minimum (DT)<input name="budgetMin" type="number" min="0" max="1000000" step="0.01" /></label><label>Budget maximum (DT)<input name="budgetMax" type="number" min="0" max="1000000" step="0.01" /></label></div>
         <button className="primary-button" type="submit" disabled={Boolean(busy)}>{busy === "post" ? "Publication…" : "Publier la mission"}</button>

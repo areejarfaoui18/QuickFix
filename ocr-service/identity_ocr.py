@@ -1,11 +1,13 @@
-"""QuickFix identity-document OCR, served from a GPU on Modal.
+"""QuickFix AI service, served from a GPU on Modal.
 
 Deploy:   python -m modal deploy ocr-service/identity_ocr.py
 Requires: a Modal secret named "quickfix-identity-ocr" holding OCR_API_TOKEN.
 
-The service reads one identity document (image or first page of a PDF) with a
-vision-language model and returns the fields an administrator needs to check.
-It keeps nothing: no document, no extracted text is stored or logged here.
+One vision-language model serves two endpoints, so only one GPU has to start:
+- POST /ocr   reads one identity document (image or first page of a PDF) and
+              returns the fields an administrator needs to check.
+- POST /chat  answers a text conversation for the QuickFix assistant.
+It keeps nothing: no document, extracted text or conversation is stored or logged here.
 """
 
 import base64
@@ -21,6 +23,8 @@ import modal
 MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"
 MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_SIDE = 1600
+MAX_CHAT_MESSAGES = 30
+MAX_CHAT_MESSAGE_CHARS = 6000
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 DOCUMENT_TYPES = {"TUNISIAN_CIN", "PASSPORT", "DRIVING_LICENSE", "RESIDENCE_PERMIT", "OTHER_ID", "NOT_AN_ID"}
 TEXT_FIELDS = ("full_name_original", "full_name_latin", "document_number", "birth_date", "expiry_date")
@@ -139,12 +143,43 @@ class IdentityOcr:
         answer = self.processor.batch_decode(output[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0]
         return parse_fields(answer)
 
+    def chat(self, messages: list, max_tokens: int) -> str:
+        """Plain text conversation; the same model answers, without an image."""
+        tokenizer = self.processor.tokenizer
+        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = tokenizer([prompt], return_tensors="pt").to("cuda")
+        with self.torch.inference_mode():
+            output = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=True, temperature=0.3, top_p=0.9)
+        return self.processor.batch_decode(output[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0].strip()
+
     @modal.asgi_app()
     def api(self):
         from fastapi import Body, FastAPI, Header, HTTPException
 
         web = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
         expected = f"Bearer {os.environ['OCR_API_TOKEN']}"
+
+        @web.post("/chat")
+        def chat(body: dict = Body(...), authorization: str = Header(default="")):
+            if not hmac.compare_digest(authorization.encode(), expected.encode()):
+                raise HTTPException(status_code=401, detail="unauthorized")
+            messages = body.get("messages")
+            max_tokens = body.get("max_tokens", 400)
+            if (
+                not isinstance(messages, list)
+                or not 1 <= len(messages) <= MAX_CHAT_MESSAGES
+                or not isinstance(max_tokens, int)
+                or not 1 <= max_tokens <= 800
+                or any(
+                    not isinstance(message, dict)
+                    or message.get("role") not in {"system", "user", "assistant"}
+                    or not isinstance(message.get("content"), str)
+                    or not 1 <= len(message["content"]) <= MAX_CHAT_MESSAGE_CHARS
+                    for message in messages
+                )
+            ):
+                raise HTTPException(status_code=400, detail="invalid request")
+            return {"content": self.chat([{"role": m["role"], "content": m["content"]} for m in messages], max_tokens)}
 
         @web.post("/ocr")
         def ocr(body: dict = Body(...), authorization: str = Header(default="")):

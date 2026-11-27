@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { hashPassword } from "../src/lib/password";
 import { ArtisanProfile } from "../src/models/artisan-profile";
 import { User } from "../src/models/user";
+import { canonicalCity, tunisianCities } from "../src/lib/cities";
 import { connectToDatabase } from "../src/lib/mongodb";
 
 const prompt = createInterface({ input: stdin, output: stdout });
@@ -79,7 +80,8 @@ async function createArtisan(index: number) {
   }
   const phone = await requiredAnswer("Téléphone : ");
   const category = await requiredAnswer("Métier / filière (ex. Plomberie, Électricité, Climatisation, Peinture, Ménage, Serrurerie) : ");
-  const city = await requiredAnswer("Ville : ");
+  const city = canonicalCity(await requiredAnswer(`Ville (${tunisianCities.join(", ")}) : `));
+  if (!city) throw new Error("Choisissez une ville de la liste.");
   const bio = await requiredAnswer("Courte présentation : ");
   const password = await hiddenAnswer("Mot de passe (12 caractères minimum, masqué) : ");
   if (password.length < 12) {

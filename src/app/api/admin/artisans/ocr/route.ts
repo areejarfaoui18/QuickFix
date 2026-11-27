@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     if (!admin) return Response.json({ error: "Connectez-vous pour accéder à l’administration." }, { status: 401 });
     if (admin.mustChangePassword) return Response.json({ error: "Changez votre mot de passe avant de continuer." }, { status: 403 });
     if (admin.role !== "ADMIN") return Response.json({ error: "Accès réservé à l’administration." }, { status: 403 });
-    if (!isIdentityOcrConfigured()) return Response.json({ error: "La lecture automatique n’est pas configurée (IDENTITY_OCR_URL et IDENTITY_OCR_TOKEN)." }, { status: 503 });
+    if (!isIdentityOcrConfigured()) return Response.json({ error: "La lecture automatique n’est pas configurée (MODAL_AI_URL et MODAL_AI_TOKEN)." }, { status: 503 });
 
     let body: unknown;
     try {

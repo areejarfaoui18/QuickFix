@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { tunisianCities } from "@/lib/cities";
 
 export type AppUser = {
   id: string;
@@ -93,7 +94,7 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
                   {["Plomberie", "Électricité", "Climatisation", "Peinture", "Ménage", "Serrurerie"].map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </label>
-              <label>Ville<input required minLength={2} maxLength={80} autoComplete="address-level2" value={city} onChange={(event) => setCity(event.target.value)} /></label>
+              <label>Ville<select required value={city} onChange={(event) => setCity(event.target.value)}><option value="" disabled>Choisir une ville</option>{tunisianCities.map((cityName) => <option key={cityName} value={cityName}>{cityName}</option>)}</select></label>
               <label>Présentation (facultative)<textarea rows={3} maxLength={1200} value={bio} onChange={(event) => setBio(event.target.value)} /></label>
             </>}
           </>}

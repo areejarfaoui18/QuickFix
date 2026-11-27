@@ -77,16 +77,16 @@ test("only administrators can start the automatic reading", async (context) => {
 
 test("the automatic reading reports when it is not configured", async (context) => {
   authenticate(context, "ADMIN");
-  delete process.env.IDENTITY_OCR_URL;
+  delete process.env.MODAL_AI_URL;
   const response = await ocrRoute.POST(ocrRequest());
   assert.equal(response.status, 503);
 });
 
 test("the automatic reading needs a pending identity document", async (context) => {
   authenticate(context, "ADMIN");
-  process.env.IDENTITY_OCR_URL = "https://ocr.example.test";
-  process.env.IDENTITY_OCR_TOKEN = "test-token";
-  context.after(() => { delete process.env.IDENTITY_OCR_URL; delete process.env.IDENTITY_OCR_TOKEN; });
+  process.env.MODAL_AI_URL = "https://ocr.example.test";
+  process.env.MODAL_AI_TOKEN = "test-token";
+  context.after(() => { delete process.env.MODAL_AI_URL; delete process.env.MODAL_AI_TOKEN; });
   context.mock.method(ArtisanProfile, "findOne", () => ({ select: () => ({ lean: async () => null }) }) as never);
   const response = await ocrRoute.POST(ocrRequest());
   assert.equal(response.status, 409);

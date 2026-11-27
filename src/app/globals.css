@@ -280,6 +280,13 @@ h1, h2, p { margin-top: 0; }
 .ai-message.user { align-self: flex-end; background: var(--green); color: white; }
 .ai-message p { margin: 0; font-size: 11px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-category-button { margin-top: 9px; padding: 7px 9px; border: 1px solid #d5e4d7; border-radius: 6px; background: white; color: var(--green-dark); font-size: 9px; font-weight: 650; }
+.ai-artisans { display: grid; gap: 6px; margin: 9px 0 0; padding: 0; list-style: none; }
+.ai-artisans button { display: grid; width: 100%; gap: 2px; padding: 8px 10px; border: 1px solid #d5e4d7; border-radius: 7px; background: white; color: #3c5143; text-align: left; }
+.ai-artisans strong { font-size: 11px; }
+.ai-artisans span { color: #84908a; font-size: 9px; }
+.ai-message .ai-notice { margin-top: 8px; color: #9a6a2f; font-size: 10px; }
+.ai-starters { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-starters button { padding: 7px 10px; border: 1px solid #d5e4d7; border-radius: 20px; background: white; color: var(--green-dark); font-size: 10px; }
 .ai-thinking { align-self: flex-start; margin: 0; color: #84908a; font-size: 10px; }
 .ai-form { display: flex; align-items: flex-end; gap: 8px; padding-top: 11px; border-top: 1px solid var(--line); }
 .ai-form textarea { min-width: 0; flex: 1; padding: 10px; border: 1px solid #dfe7e1; border-radius: 8px; color: var(--ink); font-size: 11px; resize: vertical; }

@@ -193,3 +193,21 @@ test("only the owner can cancel an open job and its pending proposals", async (c
   assert.equal(declinedFilter?.jobId, jobId);
   assert.equal(declinedFilter?.status, "PENDING");
 });
+test("a mission's city must come from the list and is stored in its official spelling", async (context) => {
+  authenticate(context, "CLIENT");
+  const created: Record<string, unknown>[] = [];
+  context.mock.method(JobPost, "create", (async (data: Record<string, unknown>) => {
+    created.push(data);
+    return { id: jobId.toString() };
+  }) as never);
+  const mission = {
+    title: "Fuite sous l’évier", category: "Plomberie", description: "Le siphon de la cuisine fuit depuis hier.",
+    address: "12 rue de test", scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+  };
+  const refused = await jobs.POST(request("/api/jobs", "POST", { ...mission, city: "Paris" }));
+  assert.equal(refused.status, 400);
+  assert.equal(created.length, 0);
+  const accepted = await jobs.POST(request("/api/jobs", "POST", { ...mission, city: "sfax" }));
+  assert.equal(accepted.status, 201);
+  assert.equal(created[0]?.city, "Sfax");
+});
