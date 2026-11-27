@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import mongoose from "mongoose";
 import { getAuthenticatedUser, hasSameOrigin } from "@/lib/auth";
+import { isIdentityOcrConfigured } from "@/lib/identity-ocr";
+import { canonicalCity } from "@/lib/cities";
 import { connectToDatabase } from "@/lib/mongodb";
 import { hashPassword } from "@/lib/password";
 import { ArtisanProfile } from "@/models/artisan-profile";
@@ -56,6 +58,24 @@ export async function GET(request: Request) {
           suspensionReason: "$user.suspensionReason",
           verificationStatus: 1,
           hasIdentityDocument: { $ne: [{ $ifNull: ["$identityDocument.fileId", null] }, null] },
+          identityOcr: {
+            $cond: [
+              { $eq: ["$identityOcr.fileId", "$identityDocument.fileId"] },
+              {
+                status: "$identityOcr.status",
+                documentType: "$identityOcr.documentType",
+                readable: "$identityOcr.readable",
+                fullName: "$identityOcr.fullName",
+                fullNameLatin: "$identityOcr.fullNameLatin",
+                documentNumber: "$identityOcr.documentNumber",
+                birthDate: "$identityOcr.birthDate",
+                expiryDate: "$identityOcr.expiryDate",
+                nameMatch: "$identityOcr.nameMatch",
+              },
+              null,
+            ],
+          },
+          identityOcrAvailable: { $literal: isIdentityOcrConfigured() },
           isAvailable: 1,
           category: 1,
           city: 1,
@@ -96,7 +116,7 @@ export async function POST(request: Request) {
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const category = typeof body.category === "string" ? body.category.trim() : "";
-    const city = typeof body.city === "string" ? body.city.trim() : "";
+    const city = canonicalCity(body.city) ?? "";
     const bio = typeof body.bio === "string" ? body.bio.trim() : "";
     const priceMin = body.indicativePriceMin === "" || body.indicativePriceMin == null ? undefined : Number(body.indicativePriceMin);
     const priceMax = body.indicativePriceMax === "" || body.indicativePriceMax == null ? undefined : Number(body.indicativePriceMax);
@@ -104,7 +124,7 @@ export async function POST(request: Request) {
     if (name.length < 2 || name.length > 100) return Response.json({ error: "Le nom doit contenir entre 2 et 100 caractères." }, { status: 400 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return Response.json({ error: "Adresse e-mail invalide." }, { status: 400 });
     if (phone.length > 30 || category.length < 2 || category.length > 80 || city.length < 2 || city.length > 80 || bio.length > 1200) {
-      return Response.json({ error: "Vérifiez le téléphone, le métier, la ville et la présentation." }, { status: 400 });
+      return Response.json({ error: "Vérifiez le téléphone, le métier, la ville (à choisir dans la liste) et la présentation." }, { status: 400 });
     }
     if (
       (priceMin !== undefined && (!Number.isFinite(priceMin) || priceMin < 0)) ||
@@ -183,7 +203,7 @@ export async function PATCH(request: Request) {
       const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
       const phone = typeof body.phone === "string" ? body.phone.trim() : "";
       const category = typeof body.category === "string" ? body.category.trim() : "";
-      const city = typeof body.city === "string" ? body.city.trim() : "";
+      const city = canonicalCity(body.city) ?? "";
       const bio = typeof body.bio === "string" ? body.bio.trim() : "";
       const priceMin = body.indicativePriceMin === "" || body.indicativePriceMin == null ? undefined : Number(body.indicativePriceMin);
       const priceMax = body.indicativePriceMax === "" || body.indicativePriceMax == null ? undefined : Number(body.indicativePriceMax);
@@ -192,7 +212,7 @@ export async function PATCH(request: Request) {
         return Response.json({ error: "Vérifiez le nom et l’adresse e-mail." }, { status: 400 });
       }
       if (phone.length > 30 || category.length < 2 || category.length > 80 || city.length < 2 || city.length > 80 || bio.length > 1200) {
-        return Response.json({ error: "Vérifiez le téléphone, le métier, la ville et la présentation." }, { status: 400 });
+        return Response.json({ error: "Vérifiez le téléphone, le métier, la ville (à choisir dans la liste) et la présentation." }, { status: 400 });
       }
       if (
         (priceMin !== undefined && (!Number.isFinite(priceMin) || priceMin < 0)) ||

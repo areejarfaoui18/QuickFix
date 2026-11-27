@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { getAuthenticatedUser, hasSameOrigin } from "@/lib/auth";
+import { canonicalCity } from "@/lib/cities";
 import { MARKETPLACE_CATEGORIES } from "@/lib/marketplace";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ArtisanProfile } from "@/models/artisan-profile";
@@ -71,14 +72,14 @@ export async function POST(request: Request) {
     if (!isRecord(body)) return Response.json({ error: "Les informations envoyées sont invalides." }, { status: 400 });
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const category = typeof body.category === "string" ? body.category : "";
-    const city = typeof body.city === "string" ? body.city.trim() : "";
+    const city = canonicalCity(body.city) ?? "";
     const description = typeof body.description === "string" ? body.description.trim() : "";
     const address = typeof body.address === "string" ? body.address.trim() : "";
     const scheduledAt = typeof body.scheduledAt === "string" ? new Date(body.scheduledAt) : new Date(Number.NaN);
     const budgetMin = body.budgetMin === null || body.budgetMin === undefined ? undefined : body.budgetMin;
     const budgetMax = body.budgetMax === null || body.budgetMax === undefined ? undefined : body.budgetMax;
     if (title.length < 5 || title.length > 120 || city.length < 2 || city.length > 80 || description.length < 20 || description.length > 2000 || !address || address.length > 300) {
-      return Response.json({ error: "Vérifiez le titre, la ville, la description et l’adresse." }, { status: 400 });
+      return Response.json({ error: "Vérifiez le titre, la ville (à choisir dans la liste), la description et l’adresse." }, { status: 400 });
     }
     if (!MARKETPLACE_CATEGORIES.includes(category as (typeof MARKETPLACE_CATEGORIES)[number])) return Response.json({ error: "Choisissez une catégorie valide." }, { status: 400 });
     if (!Number.isFinite(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now() || scheduledAt.getTime() > Date.now() + 366 * 24 * 60 * 60 * 1000) {

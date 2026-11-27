@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { canonicalCity, tunisianCities } from "@/lib/cities";
 
 type ManagedArtisan = {
   id: string;
@@ -96,7 +97,8 @@ export function AdminArtisanManagement({ onMessage }: { onMessage: (artisanId: s
       email: artisan.email,
       phone: artisan.phone,
       category: artisan.category,
-      city: artisan.city,
+      // An older profile may hold a city outside the list; the administrator then picks one.
+      city: canonicalCity(artisan.city) ?? "",
       bio: artisan.bio,
       indicativePriceMin: artisan.indicativePriceMin?.toString() ?? "",
       indicativePriceMax: artisan.indicativePriceMax?.toString() ?? "",
@@ -228,7 +230,7 @@ export function AdminArtisanManagement({ onMessage }: { onMessage: (artisanId: s
               <label>E-mail<input type="email" required maxLength={254} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
               <label>Téléphone<input maxLength={30} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
               <label>Métier / filière<input required minLength={2} maxLength={80} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label>
-              <label>Ville<input required minLength={2} maxLength={80} value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label>
+              <label>Ville<select required value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })}><option value="" disabled>Choisir une ville</option>{tunisianCities.map((cityName) => <option key={cityName} value={cityName}>{cityName}</option>)}</select></label>
               <label>Présentation<textarea rows={3} maxLength={1200} value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} /></label>
               <div className="admin-price-fields"><label>Tarif minimum (DT)<input type="number" min="0" step="0.01" value={form.indicativePriceMin} onChange={(event) => setForm({ ...form, indicativePriceMin: event.target.value })} /></label><label>Tarif maximum (DT)<input type="number" min="0" step="0.01" value={form.indicativePriceMax} onChange={(event) => setForm({ ...form, indicativePriceMax: event.target.value })} /></label></div>
               {editing && <><label className="admin-checkbox"><input type="checkbox" checked={form.isAvailable} onChange={(event) => setForm({ ...form, isAvailable: event.target.checked })} /> Disponible pour les demandes</label><label className="admin-checkbox"><input type="checkbox" checked={!form.isSuspended} onChange={(event) => setForm({ ...form, isSuspended: !event.target.checked })} /> Compte actif</label></>}

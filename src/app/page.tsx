@@ -508,7 +508,12 @@ export default function Home() {
         </section>
       </div>}
       {authDialog && <AuthDialog initialMode={authDialog} onClose={() => { setAuthDialog(null); setPendingTab(null); setPendingMessageTargetId(null); }} onSuccess={finishAuthentication} />}
-      {aiAssistantOpen && <AiAssistant onClose={() => setAiAssistantOpen(false)} onSelectCategory={(category) => {
+      {aiAssistantOpen && <AiAssistant artisans={artisans} onClose={() => setAiAssistantOpen(false)} onSelectArtisan={(artisanId) => {
+        const artisan = artisans.find((candidate) => candidate.id === artisanId);
+        if (!artisan) return;
+        setAiAssistantOpen(false);
+        openArtisan(artisan);
+      }} onSelectCategory={(category) => {
         setActiveCategory(category);
         setAiAssistantOpen(false);
         window.setTimeout(() => document.getElementById("artisans-section")?.scrollIntoView({ behavior: "smooth" }), 0);
