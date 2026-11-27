@@ -16,7 +16,7 @@ type AuthDialogProps = {
 };
 
 export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps) {
-  const [mode, setMode] = useState(initialMode);
+  const [mode, setMode] = useState<"login" | "register" | "forgot-password">(initialMode);
   const [accountRole, setAccountRole] = useState<"CLIENT" | "ARTISAN" | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -39,14 +39,22 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
     setSubmitting(true);
 
     try {
-      const response = await fetch(`/api/auth/${mode === "register" ? "register" : "login"}`, {
+      const response = await fetch(`/api/auth/${mode === "register" ? "register" : mode === "login" ? "login" : "forgot-password"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mode === "register"
           ? { name, phone, email, password, role: accountRole, category, city, bio }
-          : { email, password }),
+          : mode === "login" ? { email, password } : { email }),
       });
-      const result: { user?: AppUser; error?: string } = await response.json();
+      const result: { user?: AppUser; message?: string; error?: string } = await response.json();
+      if (mode === "forgot-password") {
+        if (!response.ok || !result.message) {
+          setError(result.error ?? "Impossible de traiter la demande.");
+          return;
+        }
+        setNotice(result.message);
+        return;
+      }
       if (!response.ok || !result.user) {
         setError(result.error ?? "Impossible de traiter la demande.");
         return;
@@ -65,8 +73,8 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
       <section className={`artisan-modal auth-modal ${mode === "register" ? "auth-register-modal" : ""}`} role="dialog" aria-modal="true" aria-labelledby="auth-title">
         <button className="modal-close" onClick={onClose} aria-label="Fermer">×</button>
         <p className="eyebrow">VOTRE ESPACE QUICKFIX</p>
-        <h2 id="auth-title">{mode === "register" ? "Créer un compte" : "Connexion"}</h2>
-        <p className="modal-description">{mode === "register" ? "Choisissez votre espace pour créer un compte adapté à vos besoins." : "Connectez-vous pour retrouver votre espace QuickFix."}</p>
+        <h2 id="auth-title">{mode === "register" ? "Créer un compte" : mode === "forgot-password" ? "Mot de passe oublié" : "Connexion"}</h2>
+        <p className="modal-description">{mode === "register" ? "Choisissez votre espace pour créer un compte adapté à vos besoins." : mode === "forgot-password" ? "Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation." : "Connectez-vous pour retrouver votre espace QuickFix."}</p>
         <form className="dialog-form" onSubmit={submit}>
           {mode === "register" && (
             <fieldset className="account-role-picker">
@@ -97,18 +105,23 @@ export function AuthDialog({ initialMode, onClose, onSuccess }: AuthDialogProps)
               <label>Présentation (facultative)<textarea rows={3} maxLength={1200} value={bio} onChange={(event) => setBio(event.target.value)} /></label>
             </>}
           </>}
-          {(mode === "login" || accountRole) && <>
+          {(mode === "login" || mode === "forgot-password" || accountRole) && <>
             <label>Adresse e-mail<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            <label>Mot de passe<input type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} required minLength={mode === "register" ? 12 : undefined} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            {mode !== "forgot-password" && <label>Mot de passe<input type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} required minLength={mode === "register" ? 12 : undefined} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} /></label>}
           </>}
           {mode === "register" && accountRole && <small className="form-hint">{accountRole === "ARTISAN" ? "Votre compte sera créé immédiatement. Envoyez ensuite votre pièce d’identité dans votre profil pour demander la vérification." : "Votre compte client sera prêt immédiatement."} Le mot de passe doit contenir au moins 12 caractères.</small>}
           {error && <p className="form-error" role="alert">{error}</p>}
           {notice && <p className="form-hint" role="status">{notice}</p>}
-          <button className="primary-button" type="submit" disabled={submitting || (mode === "register" && !accountRole)}>{submitting ? "Patientez…" : mode === "register" ? "Créer mon compte" : "Se connecter"}</button>
+          <button className="primary-button" type="submit" disabled={submitting || (mode === "register" && !accountRole)}>{submitting ? "Patientez…" : mode === "register" ? "Créer mon compte" : mode === "forgot-password" ? "Envoyer le lien" : "Se connecter"}</button>
         </form>
-        <button className="auth-switch" onClick={() => { setError(""); setNotice(""); setMode(mode === "register" ? "login" : "register"); }}>
-          {mode === "register" ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S’inscrire"}
-        </button>
+        {mode === "forgot-password" ? (
+          <button className="auth-switch" onClick={() => { setError(""); setNotice(""); setMode("login"); }}>Retour à la connexion</button>
+        ) : <>
+          {mode === "login" && <button className="auth-switch" onClick={() => { setError(""); setNotice(""); setMode("forgot-password"); }}>Mot de passe oublié ?</button>}
+          <button className="auth-switch" onClick={() => { setError(""); setNotice(""); setMode(mode === "register" ? "login" : "register"); }}>
+            {mode === "register" ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S’inscrire"}
+          </button>
+        </>}
       </section>
     </div>
   );

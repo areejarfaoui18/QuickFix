@@ -14,6 +14,9 @@ const userSchema = new Schema(
     emailVerificationTokenHash: { type: String, select: false },
     emailVerificationExpiresAt: { type: Date, select: false },
     emailVerificationSentAt: { type: Date, select: false },
+    passwordResetTokenHash: { type: String, select: false },
+    passwordResetExpiresAt: { type: Date, select: false },
+    passwordResetSentAt: { type: Date, select: false },
   },
   { timestamps: true },
 );

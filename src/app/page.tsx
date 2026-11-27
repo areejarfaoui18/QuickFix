@@ -128,6 +128,7 @@ export default function Home() {
         setCurrentUser(result.user);
         if (result.user?.mustChangePassword) setActiveTab("Profil");
         else if (result.user?.role === "ADMIN") setActiveTab("Vérification artisan");
+        else if (result.user?.role === "ARTISAN") setActiveTab("Missions");
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) console.error("Vérification de session impossible :", error);
@@ -260,6 +261,10 @@ export default function Home() {
       setActiveTab("Vérification artisan");
       return;
     }
+    if (currentUser?.role === "ARTISAN" && tab === "Explorer") {
+      setActiveTab("Missions");
+      return;
+    }
     if (tab === "Vérification d’identité" && currentUser?.role !== "ARTISAN") return;
     if (adminTabs.includes(tab as AdminTab) && currentUser?.role !== "ADMIN") return;
     if (tab === "Avis clients" || tab === "Réclamations") {
@@ -289,10 +294,11 @@ export default function Home() {
       setPendingTab(null);
       return;
     }
-    setActiveTab(user.role === "ADMIN" ? "Vérification artisan" : registered && user.role === "ARTISAN" ? "Profil" : "Explorer");
+    setActiveTab(user.role === "ADMIN" ? "Vérification artisan" : user.role === "ARTISAN" ? (registered ? "Profil" : "Missions") : "Explorer");
     if (pendingTab) {
       const adminRestrictedTab = user.role === "ADMIN" && (pendingTab === "Explorer" || pendingTab === "Missions" || pendingTab === "Mes demandes");
-      setActiveTab(adminRestrictedTab ? "Vérification artisan" : pendingTab);
+      const artisanRestrictedTab = user.role === "ARTISAN" && pendingTab === "Explorer";
+      setActiveTab(adminRestrictedTab ? "Vérification artisan" : artisanRestrictedTab ? "Missions" : pendingTab);
       setPendingTab(null);
     }
     if (selectedArtisan && user.role === "CLIENT" && !pendingMessageTargetId) setRequestTarget(selectedArtisan);
@@ -316,7 +322,7 @@ export default function Home() {
 
   const clearPendingMessageTarget = useCallback(() => setPendingMessageTargetId(null), []);
   const updateUnreadMessageCount = useCallback((count: number) => setUnreadMessageCount(count), []);
-  const homeTab: Tab = currentUser?.role === "ADMIN" ? "Vérification artisan" : "Explorer";
+  const homeTab: Tab = currentUser?.role === "ADMIN" ? "Vérification artisan" : currentUser?.role === "ARTISAN" ? "Missions" : "Explorer";
 
   async function logout() {
     setLogoutError("");
@@ -337,7 +343,9 @@ export default function Home() {
 
   const navigationTabs: Tab[] = currentUser?.role === "ADMIN"
     ? adminTabs
-    : ["Explorer", "Missions", "Mes demandes", "Messages", "Profil"];
+    : currentUser?.role === "ARTISAN"
+      ? ["Missions", "Mes demandes", "Messages", "Profil"]
+      : ["Explorer", "Missions", "Mes demandes", "Messages", "Profil"];
 
   return (
     <main className="app-shell">
@@ -386,7 +394,7 @@ export default function Home() {
             </div>
             {currentVerification?.error && !currentUser.mustChangePassword ? <button className="secondary-button" onClick={() => setVerificationVersion((version) => version + 1)}>Réessayer</button> : currentUser.mustChangePassword ? <button className="secondary-button" onClick={() => selectTab("Profil")}>Changer le mot de passe</button> : identityVerification && (identityVerification.status === "REJECTED" || !identityVerification.hasDocument) ? <button className="secondary-button" onClick={() => selectTab("Vérification d’identité")}>{identityVerification.status === "REJECTED" ? "Envoyer une nouvelle pièce" : "Vérifier mon identité"}</button> : null}
           </section>}
-          {activeTab === "Explorer" ? (
+          {activeTab === "Explorer" && currentUser?.role !== "ARTISAN" ? (
             <>
               <section className="welcome-row">
                 <div><p className="eyebrow">VOTRE ESPACE CLIENT</p><h1>Bienvenue <span className="wave">✳</span></h1><p className="welcome-subtitle">Un petit souci à la maison ? On s&apos;en occupe.</p></div>
@@ -458,7 +466,7 @@ export default function Home() {
               user={currentUser}
               initialArtisanId={pendingMessageTargetId}
               onInitialTargetHandled={clearPendingMessageTarget}
-              onBrowseArtisans={() => { setActiveTab("Explorer"); setActiveCategory("Tout"); }}
+              onBrowseArtisans={() => { selectTab("Explorer"); setActiveCategory("Tout"); }}
               onUnreadCountChange={updateUnreadMessageCount}
             />
           ) : activeTab === "Profil" && currentUser ? (

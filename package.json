@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test tests/*.test.ts",
     "create:artisan": "node --env-file=.env.local --import tsx scripts/create-artisan.ts",
     "create:admin": "node --env-file=.env.local --import tsx scripts/create-admin.ts"
   },
